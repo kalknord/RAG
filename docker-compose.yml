@@ -1,0 +1,209 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: rag_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_pw
+      POSTGRES_DB: rag_metadata
+    volumes:
+      - /opt/ai-dev/RAG/postgres/init_extended.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - rag_network
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  vectordb:
+    image: chromadb/chroma
+    container_name: rag_chromadb
+    restart: unless-stopped
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    networks:
+      - rag_network
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  llm_server:
+    image: ggerganov/llama.cpp:server
+    container_name: rag_llm_server
+    runtime: nvidia
+    environment:
+      MODEL: /models/SauerkrautLM-Nemo-12b-Instruct-Q5_K_M.gguf
+      N_GPU_LAYERS: 48
+    volumes:
+      - /opt/ai-dev/RAG/models:/models
+    ports:
+      - "8002:8000"
+    command: ["--model", "/models/SauerkrautLM-Nemo-12b-Instruct-Q5_K_M.gguf", "--n-gpu-layers", "35", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - rag_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  api_backend:
+    image: tiangolo/uvicorn-gunicorn-fastapi:python3.10
+    container_name: rag_api_backend
+    volumes:
+      - /opt/ai-dev/RAG/api_backend:/app
+      - /opt/ai-dev/RAG/data:/data
+      - /opt/ai-dev/RAG/api_backend/packages:/app/packages
+      - /opt/ai-dev/RAG/scripts:/scripts
+    environment:
+      POSTGRES_HOST: rag_postgres
+      POSTGRES_DB: rag_metadata
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_pw
+      PIP_INDEX_URL: # confidential
+      PIP_TRUSTED_HOST: # confidential
+      CHROMADB_URL: "http://vectordb:8000"
+      LANG: de_DE.UTF-8
+    ports:
+      - "8003:80"
+    networks:
+      - rag_network
+    depends_on:
+      - vectordb
+      - llm_server
+      - postgres
+    command: >
+      /bin/bash -c "pip install --no-cache-dir -r requirements.txt &&
+      gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:80"
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  pdf_parser:
+    image: huggingface/transformers-pytorch-gpu:latest
+    container_name: rag_enhanced_parser
+    runtime: nvidia
+    volumes:
+      - /opt/ai-dev/RAG/data/pdfs:/data/pdfs
+      - /opt/ai-dev/RAG/data/output:/data/output
+      - /opt/ai-dev/RAG/data/uploads:/data/uploads
+      - /opt/ai-dev/RAG/pdf_parser:/app
+      - /opt/ai-dev/RAG/models:/models
+      - /opt/ai-dev/RAG/cache:/cache
+      - /tmp:/tmp
+    environment:
+      PYTHONUNBUFFERED: "1"
+      TRANSFORMERS_CACHE: "/cache"
+      PIP_INDEX_URL: # confidential
+      PIP_TRUSTED_HOST: # confidential
+      TESSDATA_PREFIX: "/usr/share/tesseract-ocr/4.00/tessdata"
+    working_dir: /app
+    ports:
+      - "8005:8000"
+    command: sh -c "
+      pip install --no-cache-dir -r requirements.txt && 
+      uvicorn main:app --host 0.0.0.0 --port 8000"
+    networks:
+      - rag_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  frontend:
+    image: python:3.10-slim
+    container_name: rag_frontend
+    volumes:
+      - /opt/ai-dev/RAG/frontend:/app
+    environment:
+      PIP_INDEX_URL: # confidential
+      PIP_TRUSTED_HOST: # confidential
+      LANG: de_DE.UTF-8
+    working_dir: /app
+    command: /bin/bash -c "pip install --no-cache-dir -r requirements.txt && streamlit run app.py --server.port 8501 --server.address 0.0.0.0"
+    networks:
+      - rag_network
+    labels:
+      caasa.admin.full: # confidential
+      com.ouroboros.enable: 'true'
+
+  caasa:
+    image: knrdl/caasa:latest
+    restart: always
+    hostname: caasa
+    networks:
+      - rag_network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    environment:
+      ROLES_caasa_admin_basic: info, state, logs, procs, files, files-read
+      ROLES_caasa_admin_full: info, info-annotations, state, logs, term, procs, files, files-read, files-write
+      AUTH_API_URL: # confidential
+      AUTH_API_FIELD_USERNAME: userid
+      AUTH_API_FIELD_PASSWORD: password
+    mem_limit: 150m
+    cpu_count: 1
+    labels:
+      com.ouroboros.enable: 'true'
+      caasa.admin.full: # confidential
+
+  caddy:
+    image: caddy:alpine
+    container_name: reverse_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "9000:9000"
+      - "8501:8501"
+      - "8100:8100"
+      - "8101:8101"
+      - "8102:8102"
+      - "8103:8103"
+      - "8104:8104"
+    volumes:
+      - /opt/ai-dev/caddy/config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/ai-dev/caddy/data:/data
+      - /opt/ai-dev/caddy/config:/config
+    networks:
+      - rag_network
+    labels:
+      com.ouroboros.enable: 'true'
+      caasa.admin.full: # confidential
+
+  updater:
+    image: pyouroboros/ouroboros
+    container_name: updater_aquai
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --label-enable --labels-only
+    environment:
+      NOTIFIERS: "" # confidential
+      INTERVAL: '6000'
+    labels:
+      caasa.admin.full: # confidential
+
+volumes:
+  pgdata:
+  chroma_data:
+
+networks:
+  rag_network:
+    driver: bridge
+  spawner_net:
+    driver: bridge
