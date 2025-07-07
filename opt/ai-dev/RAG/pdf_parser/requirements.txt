@@ -1,0 +1,18 @@
+# NLTK-FREE VERSION - NO NATURAL LANGUAGE PROCESSING
+fastapi
+uvicorn[standard]
+python-multipart
+PyMuPDF
+python-docx
+python-pptx
+pytesseract
+opencv-python-headless
+pandas
+openpyxl
+httpx
+
+# UNSTRUCTURED ENTFERNT - verursacht NLTK-Downloads
+# unstructured[local-inference]  # DEAKTIVIERT
+
+# Embedding Support
+sentence-transformers

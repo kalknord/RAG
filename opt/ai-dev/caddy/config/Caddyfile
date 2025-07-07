@@ -1,0 +1,30 @@
+# JupyterHub 
+u00aquai.bwb.de {
+    reverse_proxy jupyterhub:8000
+}
+
+# CAASA 
+u00aquai.bwb.de:9000 {
+    reverse_proxy caasa:8080
+}
+
+# RAG-Services
+u00aquai.bwb.de:8501 {
+    reverse_proxy rag_frontend:8501
+}
+
+u00aquai.bwb.de:8110 {
+    reverse_proxy rag_llm_server:8000
+}
+
+u00aquai.bwb.de:8101 {
+    reverse_proxy rag_chromadb:8000
+}
+
+u00aquai.bwb.de:8103 {
+    reverse_proxy rag_api_backend:80
+}
+
+u00aquai.bwb.de:8104 {
+    reverse_proxy rag_pdf_parser:8000
+}

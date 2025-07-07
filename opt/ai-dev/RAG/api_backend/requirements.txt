@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+psycopg2-binary
+chromadb
+torch
+numpy
+pandas
+pydantic
+python-multipart
+httpx
