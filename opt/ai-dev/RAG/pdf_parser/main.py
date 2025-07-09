@@ -16,7 +16,7 @@ import io
 import fitz  # PyMuPDF
 import re
 
-# ---------- Optionale XLSX-Unterst¸tzung ----------
+# ---------- Optionale XLSX-Unterst√ºtzung ----------
 try:
     import pandas as pd
     import openpyxl
@@ -31,7 +31,7 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
-# Logger-Setup f¸r einheitliche Service-Logs
+# Logger-Setup f√ºr einheitliche Service-Logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,14 @@ tesseract_available = False  # Flag nach erfolgreicher OCR-Konfiguration
 # Hilfsroutinen zur Bewertung & Klassifizierung von Textabschnitten.
 
 def calculate_text_quality(text: str) -> float:
-    """Einfacher, heuristischer Qualit‰ts-Score von 0.1†bis†1.0."""
+    """Einfacher, heuristischer Qualit√§ts-Score von 0.1¬†bis¬†1.0."""
     if not text or len(text.strip()) < 5:
         return 0.1  # Minimal bei sehr wenigen Zeichen
 
     score = 1.0
     text = text.strip()
 
-    # --Textl‰nge ----------------------------------------------
+    # --Textl√§nge ----------------------------------------------
     char_count = len(text)
     if char_count < 20:
         score *= 0.3  # sehr kurz
@@ -63,7 +63,7 @@ def calculate_text_quality(text: str) -> float:
     elif char_count > 1000:
         score *= 0.9  # lang
 
-    # --Durchschnittliche Wortl‰nge ----------------------------
+    # --Durchschnittliche Wortl√§nge ----------------------------
     words = text.split()
     word_count = len(words)
     if word_count > 0:
@@ -83,7 +83,7 @@ def calculate_text_quality(text: str) -> float:
     elif special_ratio > 0.1:
         score *= 0.8
 
-    # --Groﬂbuchstaben-Rate ------------------------------------
+    # --Gro√übuchstaben-Rate ------------------------------------
     upper_count = sum(1 for c in text if c.isupper())
     upper_ratio = upper_count / char_count if char_count else 0
     if upper_ratio > 0.5:
@@ -91,7 +91,7 @@ def calculate_text_quality(text: str) -> float:
     elif upper_ratio > 0.3:
         score *= 0.9
 
-    # --Wiederholende Zeichen (z.†B. "====") ------------------
+    # --Wiederholende Zeichen (z.¬†B. "====") ------------------
     repeated_chars = len(re.findall(r'(.)\1{3,}', text))
     if repeated_chars:
         score *= 0.8
@@ -113,7 +113,7 @@ def calculate_text_quality(text: str) -> float:
     if whitespace_ratio > 0.4:
         score *= 0.8
 
-    # Normalisierung: mindestens†0.1, maximal†1.0
+    # Normalisierung: mindestens¬†0.1, maximal¬†1.0
     return round(max(0.1, min(1.0, score)), 2)
 
 
@@ -133,7 +133,7 @@ def detect_content_features(text: str) -> dict:
         r'\|.*\|',                # Pipe-Tabellen
         r'\t.*\t',               # Tab-separiert
         r'^\s*[-+|=\s]+$',       # horizontale Linien
-        r'\d+\s*[%‚Ç¨$]',         # Zahlen mit Einheiten
+        r'\d+\s*[%√¢‚Äö¬¨$]',         # Zahlen mit Einheiten
         r'[A-Za-z]+\s*:\s*\d+', # Key-Value-Paare
     ]
     for pattern in table_patterns:
@@ -143,9 +143,9 @@ def detect_content_features(text: str) -> dict:
 
     # -- Listen-Muster ---------------------------------------------
     list_patterns = [
-        r'^\s*[-ï*]\s+',     # Bulletpoints
+        r'^\s*[-‚Ä¢*]\s+',     # Bulletpoints
         r'^\s*\d+\.\s+',  # Nummerierte Listen
-        r'^\s*[a-zA-Z]\)\s+',  # a) b) c) Ö
+        r'^\s*[a-zA-Z]\)\s+',  # a) b) c) ‚Ä¶
     ]
     for pattern in list_patterns:
         if re.search(pattern, text, re.MULTILINE):
@@ -161,7 +161,7 @@ def detect_content_features(text: str) -> dict:
         features['contains_url'] = True
 
     # -- Grobe Spracherkennung (de/en) ------------------------------
-    german_indicators = ['der', 'die', 'das', 'und', 'oder', 'mit', 'f¸r', 'von', 'ist', 'sind']
+    german_indicators = ['der', 'die', 'das', 'und', 'oder', 'mit', 'f√ºr', 'von', 'ist', 'sind']
     english_indicators = ['the', 'and', 'or', 'with', 'for', 'from', 'is', 'are', 'this', 'that']
     text_lower = text.lower()
     german_count = sum(1 for w in german_indicators if w in text_lower)
@@ -173,7 +173,7 @@ def detect_content_features(text: str) -> dict:
 
 # Model-/OCR-Setup
 def load_embedding_model():
-    """L‰dt Sentence-Transformer (lokal oder aus HF-Hub)."""
+    """L√§dt Sentence-Transformer (lokal oder aus HF-Hub)."""
     global embedding_model
     if not SENTENCE_TRANSFORMERS_AVAILABLE:
         logger.warning("SentenceTransformers not available")
@@ -194,7 +194,7 @@ def load_embedding_model():
 
 
 def setup_tesseract():
-    """Versucht, Tesseract-Binary zu finden und einen Kurz-OCR-Test auszuf¸hren."""
+    """Versucht, Tesseract-Binary zu finden und einen Kurz-OCR-Test auszuf√ºhren."""
     global tesseract_available
     try:
         possible_paths = ['/usr/bin/tesseract', '/usr/local/bin/tesseract', 'tesseract']
@@ -216,7 +216,7 @@ def setup_tesseract():
 
 #OCR-Scanning
 def extract_text_with_tesseract(image_path: str, languages: List[str] = ["deu", "eng"]) -> str:
-    """F¸hrt eine Basis-Bildvorverarbeitung durch und liest Text via OCR."""
+    """F√ºhrt eine Basis-Bildvorverarbeitung durch und liest Text via OCR."""
     if not tesseract_available:
         return ""
     try:
@@ -253,7 +253,7 @@ def simple_text_element(text: str, page_num: int = 1, filename: str = ""):
 
 # PDF-Parsing mit PYMUPDF (+ OCR)
 def parse_pdf_with_pymupdf(file_path: str, extract_images: bool = True, use_ocr: bool = True, ocr_languages: List[str] = ["deu", "eng"]) -> tuple:
-    """Liest Text & (optional) Bilder aus PDF, f¸hrt ggf. OCR durch."""
+    """Liest Text & (optional) Bilder aus PDF, f√ºhrt ggf. OCR durch."""
     try:
         doc = fitz.open(file_path)
         elements = []
@@ -295,7 +295,7 @@ def parse_pdf_with_pymupdf(file_path: str, extract_images: bool = True, use_ocr:
         return [], {}
 
 
-# Chungking mit Qualit‰tsbewertung
+# Chungking mit Qualit√§tsbewertung
 def enhanced_chunk_splitting(text: str, max_chars: int = 500) -> List[dict]:
     """Teilt Text intelligent in Chunks und versieht sie mit Quality & Features."""
     if len(text) <= max_chars:
@@ -371,7 +371,7 @@ class EmbeddingResponse(BaseModel):
 # Starup-Event
 @app.on_event("startup")
 async def startup_event():
-    """L‰dt ML-Modelle & OCR beim Service-Start."""
+    """L√§dt ML-Modelle & OCR beim Service-Start."""
     embedding_success = load_embedding_model()
     tesseract_success = setup_tesseract()
     logger.info("?? QUALITY-ENHANCED DOCUMENT PARSER STARTUP:")
@@ -382,7 +382,7 @@ async def startup_event():
     logger.info("   ? No internet downloads required")
 
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
-    """Encode-Wrapper f¸r Sentence-Transformers."""
+    """Encode-Wrapper f√ºr Sentence-Transformers."""
     global embedding_model
     if embedding_model is None:
         raise HTTPException(status_code=503, detail="Embedding model not loaded")
@@ -396,8 +396,191 @@ def generate_embeddings(texts: List[str]) -> List[List[float]]:
 #API-Endpunkte
 @app.post("/parse", response_model=ParseResponse)
 async def parse_document(request: ParseRequest):
-    """Hauptroute: Dokument einlesen ? chunks ? embeddings (optional)."""
+    """Enhanced document parsing MIT Quality-Berechnung"""
     try:
         file_path = request.file_path
+        
         if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail=f"File not found: {file
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        logger.info(f"üîÑ Parsing document: {file_path}")
+        
+        # Parse document
+        elements, ocr_stats = parse_document_simple(file_path)
+        
+        if not elements:
+            return ParseResponse(
+                success=False,
+                pages=[],
+                chunks=[],
+                embeddings=[],
+                metadata={},
+                error="No content extracted"
+            )
+        
+        # Enhanced chunking mit Quality-Berechnung
+        chunks = []
+        total_quality = 0.0
+        quality_stats = {'high': 0, 'medium': 0, 'low': 0}
+        
+        for i, element in enumerate(elements):
+            text = element["text"]
+            if len(text.strip()) > 10:  # Skip very short texts
+                chunk_results = enhanced_chunk_splitting(text, request.max_characters)
+                
+                for chunk_result in chunk_results:
+                    chunk_text = chunk_result['text']
+                    quality_score = chunk_result['quality_score']
+                    features = chunk_result['features']
+                    
+                    # Quality-Kategorisierung
+                    if quality_score >= 0.7:
+                        quality_stats['high'] += 1
+                    elif quality_score >= 0.4:
+                        quality_stats['medium'] += 1
+                    else:
+                        quality_stats['low'] += 1
+                    
+                    total_quality += quality_score
+                    
+                    chunk = {
+                        "text": chunk_text,
+                        "metadata": {
+                            "page_number": element["metadata"]["page_number"],
+                            "chunk_index": len(chunks),
+                            "element_type": "Text",
+                            "file_name": element["metadata"]["filename"],
+                            "chunk_quality_score": quality_score,  # WICHTIG: Quality hinzugef√ºgt!
+                            "text_quality_score": quality_score,   # Alternative Name
+                            "contains_table": features['contains_table'],
+                            "contains_list": features['contains_list'],
+                            "contains_numbers": features['contains_numbers'],
+                            "language_detected": features['language_indicators'],
+                            "word_count": len(chunk_text.split()),
+                            "char_count": len(chunk_text)
+                        }
+                    }
+                    chunks.append(chunk)
+        
+        # Generate embeddings
+        embeddings = []
+        if request.generate_embeddings and embedding_model:
+            chunk_texts = [chunk["text"] for chunk in chunks]
+            embeddings = generate_embeddings(chunk_texts)
+            logger.info(f"‚úÖ Generated {len(embeddings)} embeddings")
+        
+        # Pages
+        pages_dict = {}
+        for chunk in chunks:
+            page_num = chunk["metadata"]["page_number"]
+            if page_num not in pages_dict:
+                pages_dict[page_num] = []
+            pages_dict[page_num].append(chunk["text"])
+        
+        pages = []
+        for page_num in sorted(pages_dict.keys()):
+            page_text = "\n\n".join(pages_dict[page_num])
+            pages.append(page_text)
+        
+        # Enhanced metadata mit Quality-Statistiken
+        avg_quality = total_quality / len(chunks) if chunks else 0.0
+        
+        metadata = {
+            "total_chunks": len(chunks),
+            "total_pages": len(pages),
+            "file_name": os.path.basename(file_path),
+            "parser_used": "pymupdf_enhanced",
+            "nltk_used": False,
+            "unstructured_used": False,
+            "embeddings_generated": len(embeddings) > 0,
+            "embedding_dimensions": len(embeddings[0]) if embeddings else 0,
+            "quality_stats": quality_stats,
+            "average_quality": round(avg_quality, 2),
+            "high_quality_chunks": quality_stats['high'],
+            "content_features_detected": True
+        }
+        
+        logger.info(f"‚úÖ Parsed: {len(pages)} pages, {len(chunks)} chunks, {len(embeddings)} embeddings")
+        logger.info(f"üìä Quality: Avg={avg_quality:.2f}, High={quality_stats['high']}, Medium={quality_stats['medium']}, Low={quality_stats['low']}")
+        
+        return ParseResponse(
+            success=True,
+            pages=pages,
+            chunks=chunks,
+            embeddings=embeddings,
+            metadata=metadata,
+            ocr_info=ocr_stats
+        )
+        
+    except Exception as e:
+        logger.error(f"‚ùå Error: {e}")
+        return ParseResponse(
+            success=False,
+            pages=[],
+            chunks=[],
+            embeddings=[],
+            metadata={},
+            error=str(e)
+        )
+
+@app.post("/embed", response_model=EmbeddingResponse)
+async def embed_texts(request: EmbeddingRequest):
+    """Embedding endpoint"""
+    try:
+        if not request.texts:
+            return EmbeddingResponse(embeddings=[], success=False, error="No texts provided")
+        
+        if embedding_model is None:
+            return EmbeddingResponse(embeddings=[], success=False, error="Embedding model not loaded")
+        
+        embeddings = generate_embeddings(request.texts)
+        return EmbeddingResponse(embeddings=embeddings, success=True, error=None)
+        
+    except Exception as e:
+        return EmbeddingResponse(embeddings=[], success=False, error=str(e))
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "service": "quality_enhanced_document_parser",
+        "version": "2.8.0",
+        "embedding_model_loaded": embedding_model is not None,
+        "ocr_available": tesseract_available,
+        "nltk_enabled": False,
+        "unstructured_enabled": False,
+        "quality_calculation": True,
+        "content_detection": True,
+        "supported_formats": [".pdf", ".txt"],
+        "internet_required": False,
+        "features": [
+            "quality_scoring",
+            "content_feature_detection", 
+            "enhanced_chunking",
+            "language_detection",
+            "table_list_detection"
+        ]
+    }
+
+@app.get("/formats")
+def supported_formats():
+    return {
+        "formats": {
+            ".pdf": "PDF Document (PyMuPDF + Quality Analysis)",
+            ".txt": "Text File (with Quality Analysis)"
+        },
+        "embedding_support": embedding_model is not None,
+        "ocr_support": tesseract_available,
+        "quality_features": [
+            "text_length_analysis",
+            "content_type_detection",
+            "language_indicators",
+            "table_list_recognition",
+            "ocr_quality_assessment"
+        ],
+        "quality_scoring": True
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
