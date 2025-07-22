@@ -1,9 +1,9 @@
 # =====================================
-# ADVANCED CHUNKING
+# ADVANCED CHUNKING UTILITIES 
 # =====================================
 
 from typing import List, Dict, Any    
-import re                            
+import re                      
 
 def process_parsed_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
@@ -18,6 +18,7 @@ def process_parsed_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     
     Rückgabe:
         List[Dict[str, Any]]: Enhanced Chunks mit angereicherten Metadaten
+                               GARANTIERT: len(output) == len(input) 
                              Struktur: [{"text": str, "metadata": enhanced_dict}, ...]
     """
     # EARLY-RETURN: Leere Input-Liste → Leere Output-Liste (triviale Count-Preservation)
@@ -62,21 +63,18 @@ def process_parsed_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "estimated_reading_time": estimate_reading_time(text),            # Geschätzte Lesezeit in Minuten
             "contains_table": detect_table_content(text),                     # Tabellen-Erkennung für Content-Type-Classification
             "contains_list": detect_list_content(text),                       # Listen-Erkennung für Struktur-Analyse
-            "text_quality_score": calculate_text_quality(text),               # Multi-Faktor Qualitätsbewertung
+            "chunk_quality_score": calculate_text_quality_enhanced(text),     # Multi-Faktor Qualitätsbewertung
             "chunk_index": i                                                  # Explizite Index-Zuordnung für Debugging
         }
         
-        # CHUNK-RECONSTRUCTION: Standard-Format mit angereicherten Metadaten
-        # KRITISCH: IMMER append() - niemals conditional skip
+        # Standard-Format mit angereicherten Metadaten
         processed_chunks.append({
             "text": text,                           # Bereinigter oder Placeholder-Text
             "metadata": enhanced_metadata           # Vollständig angereicherte Metadaten
         })
     
-    # INVARIANT-VERIFICATION: Finale Validierung der Count-Preservation
-    # Dies ist eine KRITISCHE Sicherheitsmaßnahme für System-Integrität
+    # Finale Validierung der Count-Preservation
     if len(processed_chunks) != len(chunks):
-        # CRITICAL ERROR: Count-Mismatch ist ein systemweiter Fehler
         # ValueError mit detaillierter Fehlermeldung für Debugging
         raise ValueError(f"CRITICAL: Chunk count changed from {len(chunks)} to {len(processed_chunks)}")
     
@@ -189,57 +187,6 @@ def detect_list_content(text: str) -> bool:
     # NO-MATCH: Keine Listen-Pattern gefunden
     return False
 
-def calculate_text_quality(text: str) -> float:
-    """
-    Berechnet multi-dimensionalen Qualitäts-Score für Text-Chunks (0.1-1.0).
-    
-    Parameter:
-        text (str): Zu bewertender Text-Chunk
-    
-    Rückgabe:
-        float: Qualitäts-Score zwischen 0.1 (minimal) und 1.0 (perfekt)
-               Minimum 0.1 gewährleistet dass keine Chunks komplett ausgeschlossen werden
-    """
-    # NULL-SAFETY: Minimal-Qualität für leeren Text
-    if not text:
-        return 0.1  # Minimal quality for empty text, but never 0
-    
-    # BASIS-SCORE: Startwert für multiplikative Reduktion
-    score = 1.0
-    
-    # LÄNGEN-BEWERTUNG: Optimale Wort-Anzahl für LLM-Verarbeitung
-    # Basiert auf empirischen Erfahrungen mit Transformer-Modellen
-    word_count = len(text.split())
-    if word_count < 5:
-        score *= 0.3  # Sehr kurze Texte: niedrige Qualität aber nicht null
-    elif word_count < 10:
-        score *= 0.5  # Kurze Texte: mittlere Qualität
-    elif word_count > 1000:
-        score *= 0.8  # Sehr lange Texte: schwer für LLM zu verarbeiten
-    # Optimal range 10-1000 Wörter: score bleibt 1.0
-    
-    # SONDERZEICHEN-RATIO-ANALYSE: OCR-Fehler und Formatierungs-Artefakte
-    special_chars = len(re.findall(r'[^\w\s]', text))
-    char_ratio = special_chars / len(text) if text else 0
-    if char_ratio > 0.3:  # Mehr als 30% Sonderzeichen
-        score *= 0.7  # Wahrscheinlich OCR-Fehler oder beschädigte Daten
-    
-    # GROßBUCHSTABEN-RATIO-ANALYSE: ALL-CAPS-Text und OCR-Artefakte
-    upper_ratio = len(re.findall(r'[A-Z]', text)) / len(text) if text else 0
-    if upper_ratio > 0.5:  # Mehr als 50% Großbuchstaben
-        score *= 0.8  # OCR-Fehler oder schlecht formatierter Text
-    
-    # LEXICAL-DIVERSITY-ANALYSE: Wiederholende Wörter reduzieren Qualität
-    words = text.lower().split()
-    if len(words) > 0:
-        unique_ratio = len(set(words)) / len(words)
-        if unique_ratio < 0.5:  # Weniger als 50% unique Wörter
-            score *= 0.9  # Hohe Wiederholung deutet auf schlechte Segmentierung hin
-    
-    # MINIMUM-SCORE-GARANTIE: Niemals komplett wertlose Chunks erzeugen
-    # KRITISCH: Score 0 würde zu Division-by-Zero und anderen Problemen führen
-    return max(round(score, 2), 0.1)
-
 def estimate_reading_time(text: str, words_per_minute: int = 200) -> float:
     """
     Schätzt Lesezeit für Text-Chunk basierend auf durchschnittlicher Lesegeschwindigkeit.
@@ -284,7 +231,7 @@ def get_chunk_statistics(chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
     # METADATEN-EXTRAKTION: Sichere Navigation durch Chunk-Metadaten
     # get() mit Default-Werten verhindert KeyError bei inconsistenten Strukturen
     word_counts = [chunk["metadata"].get("word_count", 0) for chunk in chunks]
-    quality_scores = [chunk["metadata"].get("text_quality_score", 0) for chunk in chunks]
+    quality_scores = [chunk["metadata"].get("chunk_quality_score", 0) for chunk in chunks]
     
     # STATISTIK-AGGREGATION: Strukturierte Berechnung aller Metriken
     return {

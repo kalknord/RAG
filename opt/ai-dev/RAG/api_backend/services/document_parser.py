@@ -8,49 +8,49 @@ import asyncio
 from typing import List, Dict, Any, Tuple
 import logging
 
-# Logging-Konfiguration für detaillierte Fehleranalyse und Performance-Monitoring
+# Logging-Konfiguration fï¿½r detaillierte Fehleranalyse und Performance-Monitoring
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Service-Discovery: Parser Service URL aus Umgebungsvariablen
-# Standardwert nutzt Docker-Container-Namen für interne Kommunikation
+# Standardwert nutzt Docker-Container-Namen fï¿½r interne Kommunikation
 PARSER_SERVICE_URL = os.getenv("PARSER_SERVICE_URL", "http://pdf_parser:8000")
 
 async def parse_document_with_embeddings(
     file_path: str, 
-    strategy: str = "hi_res",               # Parsing-Strategie: "hi_res" für maximale Qualität
-    chunking_strategy: str = "title",       # Chunk-Strategie: "title" für semantische Grenzen
-    max_characters: int = 500,              # Maximale Chunk-Größe für optimale Embedding-Performance
+    strategy: str = "hi_res",               # Parsing-Strategie: "hi_res" fï¿½r maximale Qualitï¿½t
+    chunking_strategy: str = "title",       # Chunk-Strategie: "title" fï¿½r semantische Grenzen
+    max_characters: int = 500,              # Maximale Chunk-Grï¿½ï¿½e fï¿½r optimale Embedding-Performance
     generate_embeddings: bool = True        # Ein-Schritt-Verarbeitung: Parsing + Embeddings
 ) -> Dict[str, Any]:
     """
-    Zentrale Funktion für die vollständige Dokumentenverarbeitung in einem Aufruf.
+    Zentrale Funktion fï¿½r die vollstï¿½ndige Dokumentenverarbeitung in einem Aufruf.
     
     Diese Funktion implementiert das One-Shot-Parsing-Prinzip, bei dem Dokumentenanalyse
-    und Embedding-Generierung atomisch ausgeführt werden. Dies gewährleistet:
-    - Konsistenz zwischen Text-Chunks und deren Vektorrepräsentationen
+    und Embedding-Generierung atomisch ausgefï¿½hrt werden. Dies gewï¿½hrleistet:
+    - Konsistenz zwischen Text-Chunks und deren Vektorreprï¿½sentationen
     - Reduzierte Netzwerk-Latenz durch kombinierten Service-Aufruf
     - Transaktionale Sicherheit bei der Verarbeitung
     
     Parameter:
         file_path: Absoluter Pfad zur zu verarbeitenden Datei
         strategy: "hi_res" verwendet fortgeschrittene Layout-Analyse und OCR
-        chunking_strategy: "title" berücksichtigt Dokumentenstruktur bei der Segmentierung
-        max_characters: Optimiert für all-MiniLM-L6-v2 Model (384 Dimensionen)
-        generate_embeddings: True für vollständige RAG-Pipeline
+        chunking_strategy: "title" berï¿½cksichtigt Dokumentenstruktur bei der Segmentierung
+        max_characters: Optimiert fï¿½r all-MiniLM-L6-v2 Model (384 Dimensionen)
+        generate_embeddings: True fï¿½r vollstï¿½ndige RAG-Pipeline
     
-    Rückgabe:
+    Rï¿½ckgabe:
         Dict mit 'success', 'chunks', 'embeddings', 'metadata', 'ocr_info'
     
     Raises:
         httpx.HTTPError: Bei Netzwerk- oder Service-Fehlern
         Exception: Bei unerwarteten Verarbeitungsfehlern
     """
-    # Asynchroner HTTP-Client mit großzügigem Timeout für ML-Operations
-    # 180 Sekunden berücksichtigen OCR-Verarbeitung und Embedding-Generierung
+    # Asynchroner HTTP-Client mit groï¿½zï¿½gigem Timeout fï¿½r ML-Operations
+    # 180 Sekunden berï¿½cksichtigen OCR-Verarbeitung und Embedding-Generierung
     async with httpx.AsyncClient(timeout=180.0) as client:
         try:
-            # Strukturierte Request-Payload für Parser Service
+            # Strukturierte Request-Payload fï¿½r Parser Service
             # Alle Parameter werden validiert und an den ML-Service weitergeleitet
             response = await client.post(
                 f"{PARSER_SERVICE_URL}/parse",
@@ -58,11 +58,11 @@ async def parse_document_with_embeddings(
                     "file_path": file_path,                          # Eingabedatei
                     "strategy": strategy,                            # Layout-Analyse-Strategie
                     "chunking_strategy": chunking_strategy,          # Segmentierungsverfahren
-                    "max_characters": max_characters,                # Chunk-Größenlimit
-                    "new_after_n_chars": max_characters - 50,        # Pufferzone für natürliche Grenzen
-                    "combine_text_under_n_chars": 50,                # Minimale Chunk-Größe
+                    "max_characters": max_characters,                # Chunk-Grï¿½ï¿½enlimit
+                    "new_after_n_chars": max_characters - 50,        # Pufferzone fï¿½r natï¿½rliche Grenzen
+                    "combine_text_under_n_chars": 50,                # Minimale Chunk-Grï¿½ï¿½e
                     "generate_embeddings": generate_embeddings,      # Embedding-Flag
-                    "ocr_languages": ["deu", "eng"],                 # Deutsch und Englisch für OCR
+                    "ocr_languages": ["deu", "eng"],                 # Deutsch und Englisch fï¿½r OCR
                     "extract_images": True                           # Bildextraktion aktiviert
                 }
             )
@@ -70,11 +70,11 @@ async def parse_document_with_embeddings(
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            # Detaillierte Logging für Netzwerk- und Service-Fehler
+            # Detaillierte Logging fï¿½r Netzwerk- und Service-Fehler
             logger.error(f"HTTP error when calling enhanced parser: {e}")
             raise
         except Exception as e:
-            # Catch-all für unerwartete Fehler mit vollständiger Weiterleitung
+            # Catch-all fï¿½r unerwartete Fehler mit vollstï¿½ndiger Weiterleitung
             logger.error(f"Error calling enhanced parser: {e}")
             raise
 
@@ -83,29 +83,29 @@ async def generate_embeddings_only(texts: List[str]) -> List[List[float]]:
     Standalone Embedding-Generierung mit robuster Fehlerbehandlung.
     
     Diese Funktion wurde als Reaktion auf Produktions-Fehler entwickelt und implementiert
-    mehrschichtige Validierung für die kritische Embedding-Pipeline:
-    - Input-Sanitization gegen leere/ungültige Texte
-    - Dimension-Validation für ML-Model-Konsistenz
-    - Count-Verification für 1:1 Text-zu-Embedding Mapping
-    - Typ-Validation für numerische Vector-Komponenten
+    mehrschichtige Validierung fï¿½r die kritische Embedding-Pipeline:
+    - Input-Sanitization gegen leere/ungï¿½ltige Texte
+    - Dimension-Validation fï¿½r ML-Model-Konsistenz
+    - Count-Verification fï¿½r 1:1 Text-zu-Embedding Mapping
+    - Typ-Validation fï¿½r numerische Vector-Komponenten
     
     Parameter:
-        texts: Liste von Texten für Embedding-Generierung (bereits gefiltert)
+        texts: Liste von Texten fï¿½r Embedding-Generierung (bereits gefiltert)
     
-    Rückgabe:
+    Rï¿½ckgabe:
         List[List[float]]: 384-dimensionale Vektoren (all-MiniLM-L6-v2)
-        Leere Liste bei Fehlern oder ungültigen Inputs
+        Leere Liste bei Fehlern oder ungï¿½ltigen Inputs
     
     Raises:
         Exception: Bei kritischen Validierungsfehlern (Count-Mismatch, Type-Errors)
     """
-    # EINGABE-VALIDATION: Frühe Rückkehr bei leeren Inputs
+    # EINGABE-VALIDATION: Frï¿½he Rï¿½ckkehr bei leeren Inputs
     if not texts:
         logger.warning("No texts provided for embedding generation")
         return []
     
     # TEXT-SANITIZATION: Entfernung von Whitespace-only und leeren Strings
-    # Kritisch für ML-Model-Stabilität - leere Inputs können NaN-Vektoren erzeugen
+    # Kritisch fï¿½r ML-Model-Stabilitï¿½t - leere Inputs kï¿½nnen NaN-Vektoren erzeugen
     valid_texts = [text.strip() for text in texts if text and text.strip()]
     if not valid_texts:
         logger.warning("No valid texts after filtering")
@@ -114,33 +114,33 @@ async def generate_embeddings_only(texts: List[str]) -> List[List[float]]:
     # HTTP-Client mit moderatem Timeout - Embeddings sind schneller als Full-Parsing
     async with httpx.AsyncClient(timeout=120.0) as client:
         try:
-            # PERFORMANCE-LOGGING: Tracking für Batch-Size und Response-Zeit
+            # PERFORMANCE-LOGGING: Tracking fï¿½r Batch-Size und Response-Zeit
             logger.info(f"?? Requesting embeddings for {len(valid_texts)} texts")
             
-            # API-AUFRUF: Minimale Payload für Embedding-Only Operation
+            # API-AUFRUF: Minimale Payload fï¿½r Embedding-Only Operation
             response = await client.post(
                 f"{PARSER_SERVICE_URL}/embed",
                 json={"texts": valid_texts}
             )
             
-            # STATUS-MONITORING: HTTP-Response-Code Logging für Debugging
+            # STATUS-MONITORING: HTTP-Response-Code Logging fï¿½r Debugging
             logger.info(f"?? Embedding response status: {response.status_code}")
             
             # HTTP-VALIDATION: Exception bei Client/Server-Fehlern
             response.raise_for_status()
             result = response.json()
             
-            # RESPONSE-STRUKTUR-ANALYSE: Debugging-Information für API-Entwicklung
+            # RESPONSE-STRUKTUR-ANALYSE: Debugging-Information fï¿½r API-Entwicklung
             logger.info(f"?? Embedding response keys: {list(result.keys())}")
             
-            # Response-Format-Prüfung
-            # Verhindert Runtime-Fehler bei API-Änderungen oder Service-Fehlern
+            # Response-Format-Prï¿½fung
+            # Verhindert Runtime-Fehler bei API-ï¿½nderungen oder Service-Fehlern
             if not isinstance(result, dict):
                 logger.error(f"? Invalid response type: {type(result)}")
                 raise Exception(f"Invalid response format: expected dict, got {type(result)}")
             
-            # ERFOLGS-FLAG-PRÜFUNG: Explizite Service-Level-Fehlerbehandlung
-            # Manche ML-Services melden Fehler über Status-Flags statt HTTP-Codes
+            # ERFOLGS-FLAG-PRï¿½FUNG: Explizite Service-Level-Fehlerbehandlung
+            # Manche ML-Services melden Fehler ï¿½ber Status-Flags statt HTTP-Codes
             if "success" in result:
                 if not result.get("success", False):
                     error_msg = result.get("error", "Unknown embedding error")
@@ -157,7 +157,7 @@ async def generate_embeddings_only(texts: List[str]) -> List[List[float]]:
                 logger.error("? No embeddings in response")
                 raise Exception("No embeddings returned from service")
             
-            # TYP-VALIDATION: List-Struktur erforderlich für Vektor-Arrays
+            # TYP-VALIDATION: List-Struktur erforderlich fï¿½r Vektor-Arrays
             if not isinstance(embeddings, list):
                 logger.error(f"? Invalid embeddings type: {type(embeddings)}")
                 raise Exception(f"Invalid embeddings format: expected list, got {type(embeddings)}")
@@ -170,36 +170,36 @@ async def generate_embeddings_only(texts: List[str]) -> List[List[float]]:
                 raise Exception(error_msg)
             
             # VEKTOR-STRUKTUR-VALIDATION: Jeder Embedding muss valide Nummer-Liste sein
-            # Verhindert NaN/Infinity-Werte die ChromaDB korrumpieren können
+            # Verhindert NaN/Infinity-Werte die ChromaDB korrumpieren kï¿½nnen
             for i, embedding in enumerate(embeddings):
                 # STRUKTUR-CHECK: Jeder Vektor muss Liste sein
                 if not isinstance(embedding, list):
                     logger.error(f"? Invalid embedding {i}: not a list")
                     raise Exception(f"Invalid embedding format at index {i}")
                 
-                # LÄNGEN-CHECK: Leere Vektoren sind ungültig
+                # Lï¿½NGEN-CHECK: Leere Vektoren sind ungï¿½ltig
                 if len(embedding) == 0:
                     logger.error(f"? Empty embedding at index {i}")
                     raise Exception(f"Empty embedding at index {i}")
                 
-                # NUMERISCHE-VALIDATION: Alle Komponenten müssen Numbers sein
+                # NUMERISCHE-VALIDATION: Alle Komponenten mï¿½ssen Numbers sein
                 # Verhindert String/Object-Injection in Vektor-Datenbank
                 if not all(isinstance(x, (int, float)) for x in embedding):
                     logger.error(f"? Non-numeric values in embedding {i}")
                     raise Exception(f"Non-numeric values in embedding {i}")
             
-            # ERFOLGS-LOGGING: Performance-Metriken für Monitoring
+            # ERFOLGS-LOGGING: Performance-Metriken fï¿½r Monitoring
             logger.info(f"? Successfully generated {len(embeddings)} embeddings, dim={len(embeddings[0])}")
             return embeddings
                 
         except httpx.HTTPError as e:
-            # DETAILLIERTE HTTP-FEHLER-BEHANDLUNG: Wichtig für Service-Debugging
+            # DETAILLIERTE HTTP-FEHLER-BEHANDLUNG: Wichtig fï¿½r Service-Debugging
             logger.error(f"? HTTP error when calling embedding endpoint: {e}")
             logger.error(f"? Response status: {getattr(e.response, 'status_code', 'unknown')}")
             logger.error(f"? Response text: {getattr(e.response, 'text', 'unknown')}")
             raise Exception(f"Embedding HTTP error: {str(e)}")
         except Exception as e:
-            # VOLLSTÄNDIGE TRACEBACK-ERFASSUNG: Kritisch für Produktions-Debugging
+            # VOLLSTï¿½NDIGE TRACEBACK-ERFASSUNG: Kritisch fï¿½r Produktions-Debugging
             logger.error(f"? Error calling embedding endpoint: {e}")
             import traceback
             logger.error(f"? Traceback: {traceback.format_exc()}")
@@ -208,13 +208,13 @@ async def generate_embeddings_only(texts: List[str]) -> List[List[float]]:
 async def parse_document_advanced(file_path: str, strategy: str = "hi_res", 
                                  chunking_strategy: str = "title", max_characters: int = 500):
     """
-    Legacy-Kompatibilitäts-Wrapper für bestehende Client-Code.
+    Legacy-Kompatibilitï¿½ts-Wrapper fï¿½r bestehende Client-Code.
     
     Parameter:
         Identisch zu parse_document_with_embeddings(), aber generate_embeddings=False
     
-    Rückgabe:
-        Parse-Ergebnisse ohne Embeddings für Legacy-Workflows
+    Rï¿½ckgabe:
+        Parse-Ergebnisse ohne Embeddings fï¿½r Legacy-Workflows
     """
     return await parse_document_with_embeddings(
         file_path=file_path,
@@ -226,41 +226,41 @@ async def parse_document_advanced(file_path: str, strategy: str = "hi_res",
 
 async def check_parser_connection() -> Tuple[bool, str]:
     """
-    Service-Health-Check für Parser-Microservice mit detaillierter Capability-Analyse.
+    Service-Health-Check fï¿½r Parser-Microservice mit detaillierter Capability-Analyse.
     
     Diese Funktion implementiert aktives Service-Discovery und Health-Monitoring
-    für die kritische Parser-Infrastruktur. Sie überprüft:
-    - Service-Verfügbarkeit und Response-Zeit
-    - ML-Model-Status (Embedding-Fähigkeiten)
-    - Unterstützte Dateiformate
+    fï¿½r die kritische Parser-Infrastruktur. Sie ï¿½berprï¿½ft:
+    - Service-Verfï¿½gbarkeit und Response-Zeit
+    - ML-Model-Status (Embedding-Fï¿½higkeiten)
+    - Unterstï¿½tzte Dateiformate
     - Service-Capabilities und Features
     
-    Rückgabe:
-        Tuple[bool, str]: (Verfügbarkeit, Detaillierter Status-String)
+    Rï¿½ckgabe:
+        Tuple[bool, str]: (Verfï¿½gbarkeit, Detaillierter Status-String)
         - True: Service operational mit allen Capabilities
         - False: Service offline oder kritische Features fehlen
     """
     try:
-        # KURZES TIMEOUT: Health-Checks sollen schnell sein für Load-Balancer
+        # KURZES TIMEOUT: Health-Checks sollen schnell sein fï¿½r Load-Balancer
         async with httpx.AsyncClient(timeout=5.0) as client:
             # HEALTH-ENDPOINT: Standardisierte Service-Introspection
             response = await client.get(f"{PARSER_SERVICE_URL}/health")
             response.raise_for_status()
             result = response.json()
             
-            # SERVICE-CAPABILITY-EXTRAKTION: Wichtig für Feature-Verfügbarkeit
+            # SERVICE-CAPABILITY-EXTRAKTION: Wichtig fï¿½r Feature-Verfï¿½gbarkeit
             capabilities = result.get('capabilities', [])
             embedding_loaded = result.get('embedding_model_loaded', False)
             supported_formats = result.get('supported_formats', [])
             
-            # HUMAN-READABLE STATUS-AGGREGATION: Für Dashboard-Anzeige
+            # HUMAN-READABLE STATUS-AGGREGATION: Fï¿½r Dashboard-Anzeige
             status_msg = f"Enhanced Parser online. Formats: {len(supported_formats)}, Capabilities: {', '.join(capabilities)}"
             
-            # KRITISCHE FEATURE-CHECKS: Embedding-Fähigkeit für RAG-Betrieb
+            # KRITISCHE FEATURE-CHECKS: Embedding-Fï¿½higkeit fï¿½r RAG-Betrieb
             if embedding_loaded:
                 status_msg += " | Embeddings: ?"
             else:
-                status_msg += " | Embeddings: ?"  # Warnung: Reduzierte Funktionalität
+                status_msg += " | Embeddings: ?"  # Warnung: Reduzierte Funktionalitï¿½t
                 
             return True, status_msg
     except Exception as e:
@@ -269,15 +269,15 @@ async def check_parser_connection() -> Tuple[bool, str]:
 
 async def get_supported_formats() -> Dict[str, str]:
     """
-    Dynamische Abfrage der unterstützten Dateiformate vom Parser-Service.
+    Dynamische Abfrage der unterstï¿½tzten Dateiformate vom Parser-Service.
     
-    Diese Funktion implementiert Service-Discovery für Dateiformat-Capabilities.
-    Sie ermöglicht:
+    Diese Funktion implementiert Service-Discovery fï¿½r Dateiformat-Capabilities.
+    Sie ermï¿½glicht:
     - Dynamische UI-Anpassung basierend auf Service-Features
     - Automatische Format-Validation ohne Hard-coding
     - Fallback-Strategien bei Service-Ausfall
     
-    Rückgabe:
+    Rï¿½ckgabe:
         Dict[str, str]: Mapping von Dateiendung zu Beschreibung
         Beispiel: {".pdf": "PDF Document", ".docx": "Word Document"}
     """
@@ -288,16 +288,16 @@ async def get_supported_formats() -> Dict[str, str]:
             response = await client.get(f"{PARSER_SERVICE_URL}/formats")
             response.raise_for_status()
             result = response.json()
-            # EXTRAHIERUNG: Nested-JSON-Struktur für Format-Informationen
+            # EXTRAHIERUNG: Nested-JSON-Struktur fï¿½r Format-Informationen
             return result.get("formats", {})
     except Exception as e:
         # FALLBACK-STRATEGIE: Statische Format-Liste bei Service-Ausfall
         logger.error(f"Error getting supported formats: {e}")
         
-        # VOLLSTÄNDIGER FALLBACK: Basis-Formate die immer unterstützt werden
+        # VOLLSTï¿½NDIGER FALLBACK: Basis-Formate die immer unterstï¿½tzt werden
         # Diese Liste wird manuell synchron gehalten mit Service-Capabilities
         return {
-            ".pdf": "PDF Document",                    # Primärformat für Dokumentenverarbeitung
+            ".pdf": "PDF Document",                    # Primï¿½rformat fï¿½r Dokumentenverarbeitung
             ".docx": "Word Document",                  # Microsoft Word (moderne Version)
             ".doc": "Word Document (Legacy)",         # Microsoft Word (Legacy-Format)
             ".pptx": "PowerPoint Presentation",       # Microsoft PowerPoint (moderne Version)

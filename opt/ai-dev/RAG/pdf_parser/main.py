@@ -1,4 +1,3 @@
--*- coding: utf-8 -*-
 # ---------------------------------------------------------------------
 # Enhanced Document Parser
 # ---------------------------------------------------------------------
@@ -16,7 +15,7 @@ import io
 import fitz  # PyMuPDF
 import re
 
-# ---------- Optionale XLSX-Unterstützung ----------
+# ---------- Optionale XLSX-Unterst�tzung ----------
 try:
     import pandas as pd
     import openpyxl
@@ -31,7 +30,7 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
-# Logger-Setup für einheitliche Service-Logs
+# Logger-Setup f�r einheitliche Service-Logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -42,138 +41,9 @@ app = FastAPI(title="Enhanced Document Parser - QUALITY FIX v2.8.0", version="2.
 embedding_model = None  # SentenceTransformer-Instanz oder None
 tesseract_available = False  # Flag nach erfolgreicher OCR-Konfiguration
 
-# Hilfsroutinen zur Bewertung & Klassifizierung von Textabschnitten.
-
-def calculate_text_quality(text: str) -> float:
-    """Einfacher, heuristischer Qualitäts-Score von 0.1 bis 1.0."""
-    if not text or len(text.strip()) < 5:
-        return 0.1  # Minimal bei sehr wenigen Zeichen
-
-    score = 1.0
-    text = text.strip()
-
-    # --Textlänge ----------------------------------------------
-    char_count = len(text)
-    if char_count < 20:
-        score *= 0.3  # sehr kurz
-    elif char_count < 50:
-        score *= 0.6  # kurz
-    elif char_count > 2000:
-        score *= 0.8  # sehr lang
-    elif char_count > 1000:
-        score *= 0.9  # lang
-
-    # --Durchschnittliche Wortlänge ----------------------------
-    words = text.split()
-    word_count = len(words)
-    if word_count > 0:
-        avg_word_length = char_count / word_count
-        if avg_word_length < 2:
-            score *= 0.7  # evtl. OCR-Artefakte
-        elif avg_word_length > 15:
-            score *= 0.8  # Fachchinesisch / Fehler
-    else:
-        score *= 0.2
-
-    # --Sonderzeichen-Rate -------------------------------------
-    special_chars = len(re.findall(r'[^\w\s\.,!?\-()]', text))
-    special_ratio = special_chars / char_count if char_count else 0
-    if special_ratio > 0.2:
-        score *= 0.6
-    elif special_ratio > 0.1:
-        score *= 0.8
-
-    # --Großbuchstaben-Rate ------------------------------------
-    upper_count = sum(1 for c in text if c.isupper())
-    upper_ratio = upper_count / char_count if char_count else 0
-    if upper_ratio > 0.5:
-        score *= 0.7
-    elif upper_ratio > 0.3:
-        score *= 0.9
-
-    # --Wiederholende Zeichen (z. B. "====") ------------------
-    repeated_chars = len(re.findall(r'(.)\1{3,}', text))
-    if repeated_chars:
-        score *= 0.8
-
-    # --Satzzeichen-Indikatoren --------------------------------
-    sentence_indicators = len(re.findall(r'[.!?]', text))
-    if char_count > 100 and sentence_indicators == 0:
-        score *= 0.7
-
-    # --Ziffern-Quote (Tabellen) --------------------------------
-    digit_count = sum(1 for c in text if c.isdigit())
-    digit_ratio = digit_count / char_count if char_count else 0
-    if digit_ratio > 0.3:
-        score *= 1.1  # Tabelleninfos als wertvoll erachten
-
-    # --Whitespace-Quote ---------------------------------------
-    whitespace_count = sum(1 for c in text if c.isspace())
-    whitespace_ratio = whitespace_count / char_count if char_count else 0
-    if whitespace_ratio > 0.4:
-        score *= 0.8
-
-    # Normalisierung: mindestens 0.1, maximal 1.0
-    return round(max(0.1, min(1.0, score)), 2)
-
-
-def detect_content_features(text: str) -> dict:
-    """Erkennt Tabellen, Listen, Zahlen, E-Mails, URLs & Sprache."""
-    features = {
-        'contains_table': False,
-        'contains_list': False,
-        'contains_numbers': False,
-        'contains_email': False,
-        'contains_url': False,
-        'language_indicators': 'de'  # Default: deutsch
-    }
-
-    # -- Tabellen-Muster -------------------------------------------
-    table_patterns = [
-        r'\|.*\|',                # Pipe-Tabellen
-        r'\t.*\t',               # Tab-separiert
-        r'^\s*[-+|=\s]+$',       # horizontale Linien
-        r'\d+\s*[%â‚¬$]',         # Zahlen mit Einheiten
-        r'[A-Za-z]+\s*:\s*\d+', # Key-Value-Paare
-    ]
-    for pattern in table_patterns:
-        if re.search(pattern, text, re.MULTILINE):
-            features['contains_table'] = True
-            break
-
-    # -- Listen-Muster ---------------------------------------------
-    list_patterns = [
-        r'^\s*[-•*]\s+',     # Bulletpoints
-        r'^\s*\d+\.\s+',  # Nummerierte Listen
-        r'^\s*[a-zA-Z]\)\s+',  # a) b) c) …
-    ]
-    for pattern in list_patterns:
-        if re.search(pattern, text, re.MULTILINE):
-            features['contains_list'] = True
-            break
-
-    # -- Zahlen, Mails, URLs ---------------------------------------
-    if re.search(r'\d{3,}', text):
-        features['contains_numbers'] = True
-    if re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text):
-        features['contains_email'] = True
-    if re.search(r'https?://[^\s]+', text):
-        features['contains_url'] = True
-
-    # -- Grobe Spracherkennung (de/en) ------------------------------
-    german_indicators = ['der', 'die', 'das', 'und', 'oder', 'mit', 'für', 'von', 'ist', 'sind']
-    english_indicators = ['the', 'and', 'or', 'with', 'for', 'from', 'is', 'are', 'this', 'that']
-    text_lower = text.lower()
-    german_count = sum(1 for w in german_indicators if w in text_lower)
-    english_count = sum(1 for w in english_indicators if w in text_lower)
-    if english_count > german_count:
-        features['language_indicators'] = 'en'
-
-    return features
-
 # Model-/OCR-Setup
 def load_embedding_model():
-    """Lädt Sentence-Transformer (lokal oder aus HF-Hub)."""
+    """L�dt Sentence-Transformer (lokal oder aus HF-Hub)."""
     global embedding_model
     if not SENTENCE_TRANSFORMERS_AVAILABLE:
         logger.warning("SentenceTransformers not available")
@@ -194,7 +64,7 @@ def load_embedding_model():
 
 
 def setup_tesseract():
-    """Versucht, Tesseract-Binary zu finden und einen Kurz-OCR-Test auszuführen."""
+    """Versucht, Tesseract-Binary zu finden und einen Kurz-OCR-Test auszuf�hren."""
     global tesseract_available
     try:
         possible_paths = ['/usr/bin/tesseract', '/usr/local/bin/tesseract', 'tesseract']
@@ -216,7 +86,7 @@ def setup_tesseract():
 
 #OCR-Scanning
 def extract_text_with_tesseract(image_path: str, languages: List[str] = ["deu", "eng"]) -> str:
-    """Führt eine Basis-Bildvorverarbeitung durch und liest Text via OCR."""
+    """F�hrt eine Basis-Bildvorverarbeitung durch und liest Text via OCR."""
     if not tesseract_available:
         return ""
     try:
@@ -249,11 +119,52 @@ def simple_text_element(text: str, page_num: int = 1, filename: str = ""):
         }
     }
 
-
+def calculate_text_quality_enhanced(text: str) -> float:
+    """Verbesserte Text-Qualitätsbewertung für Parser"""
+    if not text or len(text.strip()) < 3:
+        return 0.1
+    
+    text = text.strip()
+    score = 1.0
+    
+    # Längen-Bewertung
+    char_count = len(text)
+    word_count = len(text.split())
+    
+    if word_count < 3:
+        score *= 0.2  
+    elif word_count < 8:
+        score *= 0.5
+    elif char_count > 1500:
+        score *= 0.8
+    elif char_count > 2500:
+        score *= 0.6
+    
+    # Sonderzeichen-Analyse
+    special_chars = len(re.findall(r'[^\w\s\.,!?\-()"\':;]', text))
+    special_ratio = special_chars / char_count if char_count else 0
+    if special_ratio > 0.25:
+        score *= 0.6
+    elif special_ratio > 0.15:
+        score *= 0.8
+    
+    # Grossbuchstaben
+    upper_count = sum(1 for c in text if c.isupper())
+    upper_ratio = upper_count / char_count if char_count else 0
+    if upper_ratio > 0.6:
+        score *= 0.7
+    
+    # Ziffern-Bonus für Tabellen
+    digit_count = sum(1 for c in text if c.isdigit()) 
+    digit_ratio = digit_count / char_count if char_count else 0
+    if digit_ratio > 0.3:
+        score *= 1.05
+    
+    return round(max(0.1, min(1.0, score)), 2)
 
 # PDF-Parsing mit PYMUPDF (+ OCR)
 def parse_pdf_with_pymupdf(file_path: str, extract_images: bool = True, use_ocr: bool = True, ocr_languages: List[str] = ["deu", "eng"]) -> tuple:
-    """Liest Text & (optional) Bilder aus PDF, führt ggf. OCR durch."""
+    """Liest Text & (optional) Bilder aus PDF, f�hrt ggf. OCR durch."""
     try:
         doc = fitz.open(file_path)
         elements = []
@@ -295,39 +206,33 @@ def parse_pdf_with_pymupdf(file_path: str, extract_images: bool = True, use_ocr:
         return [], {}
 
 
-# Chungking mit Qualitätsbewertung
+# Chungking mit Qualit�tsbewertung
 def enhanced_chunk_splitting(text: str, max_chars: int = 500) -> List[dict]:
-    """Teilt Text intelligent in Chunks und versieht sie mit Quality & Features."""
+    """Teilt Text intelligent in Chunks - Quality wird später berechnet."""
     if len(text) <= max_chars:
-        quality = calculate_text_quality(text)
-        features = detect_content_features(text)
-        return [{
-            'text': text,
-            'quality_score': quality,
-            'features': features
-        }]
+        return [{'text': text}]
+    
     chunks = []
     sentences = re.split(r'[.!?]+', text)
     current_chunk = ""
+    
     for sentence in sentences:
         sentence = sentence.strip()
         if not sentence:
             continue
         if sentence != sentences[-1]:
             sentence += "."
-        # Chunk zusammenbauen --------------------------------------
+        
         if len(current_chunk) + len(sentence) + 1 <= max_chars:
             current_chunk += " " + sentence if current_chunk else sentence
         else:
             if current_chunk:
-                quality = calculate_text_quality(current_chunk)
-                features = detect_content_features(current_chunk)
-                chunks.append({'text': current_chunk, 'quality_score': quality, 'features': features})
+                chunks.append({'text': current_chunk})
             current_chunk = sentence
+    
     if current_chunk:
-        quality = calculate_text_quality(current_chunk)
-        features = detect_content_features(current_chunk)
-        chunks.append({'text': current_chunk, 'quality_score': quality, 'features': features})
+        chunks.append({'text': current_chunk})
+    
     return chunks
 
 def parse_document_simple(file_path: str) -> tuple:
@@ -371,7 +276,7 @@ class EmbeddingResponse(BaseModel):
 # Starup-Event
 @app.on_event("startup")
 async def startup_event():
-    """Lädt ML-Modelle & OCR beim Service-Start."""
+    """L�dt ML-Modelle & OCR beim Service-Start."""
     embedding_success = load_embedding_model()
     tesseract_success = setup_tesseract()
     logger.info("?? QUALITY-ENHANCED DOCUMENT PARSER STARTUP:")
@@ -382,7 +287,7 @@ async def startup_event():
     logger.info("   ? No internet downloads required")
 
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
-    """Encode-Wrapper für Sentence-Transformers."""
+    """Encode-Wrapper f�r Sentence-Transformers."""
     global embedding_model
     if embedding_model is None:
         raise HTTPException(status_code=503, detail="Embedding model not loaded")
@@ -403,7 +308,7 @@ async def parse_document(request: ParseRequest):
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
         
-        logger.info(f"🔄 Parsing document: {file_path}")
+        logger.info(f"?? Parsing document: {file_path}")
         
         # Parse document
         elements, ocr_stats = parse_document_simple(file_path)
@@ -420,8 +325,6 @@ async def parse_document(request: ParseRequest):
         
         # Enhanced chunking mit Quality-Berechnung
         chunks = []
-        total_quality = 0.0
-        quality_stats = {'high': 0, 'medium': 0, 'low': 0}
         
         for i, element in enumerate(elements):
             text = element["text"]
@@ -430,18 +333,6 @@ async def parse_document(request: ParseRequest):
                 
                 for chunk_result in chunk_results:
                     chunk_text = chunk_result['text']
-                    quality_score = chunk_result['quality_score']
-                    features = chunk_result['features']
-                    
-                    # Quality-Kategorisierung
-                    if quality_score >= 0.7:
-                        quality_stats['high'] += 1
-                    elif quality_score >= 0.4:
-                        quality_stats['medium'] += 1
-                    else:
-                        quality_stats['low'] += 1
-                    
-                    total_quality += quality_score
                     
                     chunk = {
                         "text": chunk_text,
@@ -450,14 +341,9 @@ async def parse_document(request: ParseRequest):
                             "chunk_index": len(chunks),
                             "element_type": "Text",
                             "file_name": element["metadata"]["filename"],
-                            "chunk_quality_score": quality_score,  # WICHTIG: Quality hinzugefügt!
-                            "text_quality_score": quality_score,   # Alternative Name
-                            "contains_table": features['contains_table'],
-                            "contains_list": features['contains_list'],
-                            "contains_numbers": features['contains_numbers'],
-                            "language_detected": features['language_indicators'],
                             "word_count": len(chunk_text.split()),
-                            "char_count": len(chunk_text)
+                            "char_count": len(chunk_text),
+                            "chunk_quality_score": calculate_text_quality_enhanced(chunk_text)
                         }
                     }
                     chunks.append(chunk)
@@ -467,7 +353,7 @@ async def parse_document(request: ParseRequest):
         if request.generate_embeddings and embedding_model:
             chunk_texts = [chunk["text"] for chunk in chunks]
             embeddings = generate_embeddings(chunk_texts)
-            logger.info(f"✅ Generated {len(embeddings)} embeddings")
+            logger.info(f"? Generated {len(embeddings)} embeddings")
         
         # Pages
         pages_dict = {}
@@ -482,9 +368,7 @@ async def parse_document(request: ParseRequest):
             page_text = "\n\n".join(pages_dict[page_num])
             pages.append(page_text)
         
-        # Enhanced metadata mit Quality-Statistiken
-        avg_quality = total_quality / len(chunks) if chunks else 0.0
-        
+        # Simplified metadata
         metadata = {
             "total_chunks": len(chunks),
             "total_pages": len(pages),
@@ -494,14 +378,11 @@ async def parse_document(request: ParseRequest):
             "unstructured_used": False,
             "embeddings_generated": len(embeddings) > 0,
             "embedding_dimensions": len(embeddings[0]) if embeddings else 0,
-            "quality_stats": quality_stats,
-            "average_quality": round(avg_quality, 2),
-            "high_quality_chunks": quality_stats['high'],
             "content_features_detected": True
         }
         
-        logger.info(f"✅ Parsed: {len(pages)} pages, {len(chunks)} chunks, {len(embeddings)} embeddings")
-        logger.info(f"📊 Quality: Avg={avg_quality:.2f}, High={quality_stats['high']}, Medium={quality_stats['medium']}, Low={quality_stats['low']}")
+        logger.info(f"? Parsed: {len(pages)} pages, {len(chunks)} chunks, {len(embeddings)} embeddings")
+        logger.info(f"? Parsing completed: {len(pages)} pages, {len(chunks)} chunks")
         
         return ParseResponse(
             success=True,
@@ -513,7 +394,7 @@ async def parse_document(request: ParseRequest):
         )
         
     except Exception as e:
-        logger.error(f"❌ Error: {e}")
+        logger.error(f"? Error: {e}")
         return ParseResponse(
             success=False,
             pages=[],

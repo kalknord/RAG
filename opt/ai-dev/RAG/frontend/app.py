@@ -1,32 +1,31 @@
- -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------
-# BWB PoC RAG System � Streamlit-Frontend
+# BWB PoC RAG System  Streamlit-Frontend
 # ----------------------------------------------------------------------
 
-import streamlit as st              
-import requests                     
-import os                          
-import pandas as pd                 
-import plotly.express as px        
-import plotly.graph_objects as go   
-from datetime import datetime, timedelta  
-import json                         
-from typing import Dict, Any, List   
-import time                         
+import streamlit as st
+import requests
+import os
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import json
+from typing import Dict, Any, List
+import time
+import textwrap
 
-
+# API Base URL
 API_BASE_URL = os.getenv("API_BASE_URL", "http://rag_api_backend:80")
 
-# Seitenkonfiguration
+# ðŸŽ¨ Seitenkonfiguration
 st.set_page_config(
-    page_title="?? BWB PoC RAG System",
-    page_icon="??",
+    page_title="ðŸ¢ BWB PoC RAG System",
+    page_icon="ðŸ”",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-
-# Zus�tzliche CSS-Klassen f�r eine ansprechendere UI-Gestaltung.
+# ðŸŽ¨ CSS fÃ¼r eine ansprechendere UI-Gestaltung
 st.markdown("""
 <style>
     .metric-card {
@@ -56,17 +55,29 @@ st.markdown("""
         padding: 0.75rem;
         margin: 0.5rem 0;
     }
+    .queue-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        color: white;
+        margin: 0.5rem 0;
+    }
+    .developer-tools {
+        background-color: #2d3748;
+        color: #e2e8f0;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        font-family: monospace;
+    }
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Diese kleineren Utilities unterst�tzen z.�B. Formatierungen oder
-# Fehlerbehandlung und halten den Hauptcode schlanker.
-
+# ðŸ”§ Utility-Funktionen 
 def get_mime_type(filename):
-    """Bestimmt den MIME-Type anhand der Dateiendung."""
+    """ðŸ” Bestimmt den MIME-Type anhand der Dateiendung."""
     file_ext = os.path.splitext(filename.lower())[1]
     mime_types = {
         '.pdf': 'application/pdf',
@@ -83,9 +94,8 @@ def get_mime_type(filename):
     }
     return mime_types.get(file_ext, 'application/octet-stream')
 
-
 def format_file_size(size_bytes):
-    """Gibt Dateigr��en in menschenlesbarem Format zur�ck (KB/MB/GB)."""
+    """ðŸ“ Gibt DateigrÃ¶ÃŸen in menschenlesbarem Format zurÃ¼ck."""
     if size_bytes == 0:
         return "0 B"
     size_names = ["B", "KB", "MB", "GB"]
@@ -95,9 +105,8 @@ def format_file_size(size_bytes):
         i += 1
     return f"{size_bytes:.1f} {size_names[i]}"
 
-
 def format_duration(ms):
-    """Konvertiert Millisekunden in ein handliches Zeitformat."""
+    """â±ï¸ Konvertiert Millisekunden in handliches Zeitformat."""
     if ms is None:
         return "N/A"
     if ms < 1000:
@@ -107,21 +116,19 @@ def format_duration(ms):
     else:
         return f"{ms/60000:.1f}m"
 
-
 def create_status_badge(status):
-    """Erzeugt ein farbiges Status-Badge f�r die Dateiverwaltung."""
+    """ðŸ·ï¸ Erzeugt farbiges Status-Badge."""
     colors = {
-        "chunked": "?",
-        "processing": "??", 
-        "uploaded": "??",
-        "error": "?",
-        "deleted": "???"
+        "chunked": "âœ…",
+        "processing": "âš™ï¸", 
+        "uploaded": "ðŸ“¤",
+        "error": "âŒ",
+        "deleted": "ðŸ—‘ï¸"
     }
-    return f"{colors.get(status, '?')} {status.title()}"
-
+    return f"{colors.get(status, 'â“')} {status.title()}"
 
 def make_api_request(endpoint, method="GET", **kwargs):
-    """Generischer Wrapper f�r Aufrufe an das FastAPI-Backend."""
+    """ðŸŒ Generischer API-Request"""
     try:
         url = f"{API_BASE_URL}{endpoint}"
         if method == "GET":
@@ -132,99 +139,98 @@ def make_api_request(endpoint, method="GET", **kwargs):
             response = requests.delete(url, **kwargs)
         else:
             raise ValueError(f"Unsupported method: {method}")
+        
         response.raise_for_status()
         return True, response.json()
     except requests.exceptions.RequestException as e:
         return False, str(e)
 
-# Sidebar
-
+# ðŸŽ¯ Sidebar 
 with st.sidebar:
-    st.header("?? BWB PoC RAG System")
-    st.markdown("**?? PDF + OCR Version**")
+    st.header("ðŸ¢ BWB PoC RAG System")
+    st.markdown("**ðŸ“š PDF + OCR Version**")
     st.markdown("---")
 
-    # -------------- Navigation --------------
+    # ðŸ§­ Erweiterte Navigation
     selected_page = st.selectbox(
-        "??? Navigation:",
+        "ðŸ§­ Navigation:",
         [
-            "?? Dashboard",
-            "?? Dateien hochladen", 
-            "?? Dateiverwaltung",
-            "?? Suche & Abfrage",
-            "?? Analytik",
-            "?? Systemverwaltung"
+            "ðŸ“Š Dashboard",
+            "ðŸ“ Dateien hochladen", 
+            "ðŸ—‚ï¸ Dateiverwaltung",
+            "ðŸ” Suche & Abfrage",
+            "ðŸ“ˆ Analytik",
+            "ðŸ“‹ Queue Management",    
+            "âš™ï¸ Systemverwaltung"
         ],
         key="navigation"
     )
 
     st.markdown("---")
 
-    # -------------- Schnellaktionen --------------
-    st.subheader("? Schnellaktionen")
+    # âš¡ Schnellaktionen
+    st.subheader("âš¡ Schnellaktionen")
 
-    # Seite neuladen
-    if st.button("?? Daten neu laden"):
+    # ðŸ”„ Seite neuladen
+    if st.button("ðŸ”„ Daten neu laden"):
         st.rerun()
 
-    # Health-Check des Backends
-    if st.button("?? Systemstatus pr�fen"):
-        with st.spinner("?? Systemstatus wird gepr�ft..."):
+    # ðŸ©º Health-Check
+    if st.button("ðŸ©º Systemstatus prÃ¼fen"):
+        with st.spinner("ðŸ” Systemstatus wird geprÃ¼ft..."):
             success, health = make_api_request("/health")
             if success:
                 status = health.get("status", "unbekannt")
                 if status == "healthy":
-                    st.success(f"? System: {status}")
+                    st.success(f"âœ… System: {status}")
                 else:
-                    st.warning(f"?? System: {status}")
+                    st.warning(f"âš ï¸ System: {status}")
             else:
-                st.error("? System nicht erreichbar")
+                st.error("âŒ System nicht erreichbar")
 
-# --------------------------Dashboard--------------------------------------------
-if selected_page == "?? Dashboard":
-    st.title("?? System Dashboard")
+# ---------------- ðŸ“Š Dashboard ----------------
+if selected_page == "ðŸ“Š Dashboard":
+    st.title("ðŸ“Š System Dashboard")
 
-    # ---------------- System Health ----------------
+    # ðŸ©º System Health
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.subheader("?? Systemstatus")
+        st.subheader("ðŸ©º Systemstatus")
     with col2:
-        if st.button("?? Aktualisieren", key="health_refresh"):
+        if st.button("ðŸ”„ Aktualisieren", key="health_refresh"):
             st.rerun()
 
-    # Anfrage an /health
     success, health_data = make_api_request("/health")
 
     if success:
         overall_status = health_data.get("status", "unbekannt")
-        # Globaler Health-Badge
         if overall_status == "healthy":
-            st.success("? Alle Systeme funktionieren ordnungsgem��")
+            st.success("âœ… Alle Systeme funktionieren ordnungsgemÃ¤ÃŸ")
         else:
-            st.warning(f"?? Systemstatus: {overall_status}")
+            st.warning(f"âš ï¸ Systemstatus: {overall_status}")
 
-        # Einzelne Services (Vector-DB, OCR-Pipeline, ...)
+        # Einzelne Services
         services = health_data.get("services", {})
-        cols = st.columns(len(services))
-        for i, (service, info) in enumerate(services.items()):
-            with cols[i]:
-                if info["status"] == "ok":
-                    st.success(f"? **{service.title()}**")
-                else:
-                    st.error(f"? **{service.title()}**")
-                st.caption(info["message"][:40] + "..." if len(info["message"]) > 40 else info["message"])
+        if services:
+            cols = st.columns(len(services))
+            for i, (service, info) in enumerate(services.items()):
+                with cols[i]:
+                    if info["status"] == "ok":
+                        st.success(f"âœ… **{service.title()}**")
+                    else:
+                        st.error(f"âŒ **{service.title()}**")
+                    st.caption(info["message"][:40] + "..." if len(info["message"]) > 40 else info["message"])
     else:
-        st.error(f"? System nicht erreichbar: {health_data}")
+        st.error(f"âŒ System nicht erreichbar: {health_data}")
 
     st.markdown("---")
 
-    # ---------------- Performance Metrics ----------------
-    st.subheader("?? Systemleistung")
+    # ðŸ“ˆ Performance Metrics
+    st.subheader("ðŸ“ˆ Systemleistung")
     success, perf_data = make_api_request("/system/performance")
 
     if success:
         metrics = perf_data.get("metrics", {})
-        # Metriken (Dateien, Chunks, Performance-Dauer, ...)
         col1, col2, col3, col4, col5 = st.columns(5)
 
         files_data = metrics.get("files", {})
@@ -232,22 +238,22 @@ if selected_page == "?? Dashboard":
         performance_data = metrics.get("performance", {})
 
         with col1:
-            st.metric("?? Dateien gesamt", files_data.get("total", 0))
+            st.metric("ðŸ“ Dateien gesamt", files_data.get("total", 0))
         with col2:
-            st.metric("? Verarbeitete Dateien", files_data.get("ready", 0))
+            st.metric("âœ… Verarbeitete Dateien", files_data.get("ready", 0))
         with col3:
-            st.metric("?? Chunks gesamt", chunks_data.get("total", 0))
+            st.metric("ðŸ§© Chunks gesamt", chunks_data.get("total", 0))
         with col4:
             avg_time = performance_data.get("avg_processing_time_ms")
-            st.metric("?? � Verarbeitungszeit", format_duration(avg_time))
+            st.metric("â±ï¸ âŒ€ Verarbeitungszeit", format_duration(avg_time))
         with col5:
             quality = performance_data.get("avg_file_quality")
-            st.metric("? � Qualit�t", f"{quality:.2f}" if quality else "N/A")
+            st.metric("ðŸŽ¯ âŒ€ QualitÃ¤t", f"{quality:.2f}" if quality else "N/A")
 
-        # Visualisierung des Dateistatus als Torten-Diagramm
-        st.subheader("?? Dateistatusverleilung")
+        # ðŸ“Š Dateistatus-Verteilung
+        st.subheader("ðŸ“Š Dateistatusverleilung")
         if files_data.get("total", 0) > 0:
-            status_labels = ["Fertig", "In Bearbeitung", "Warteschlange", "Fehler"]
+            status_labels = ["âœ… Fertig", "âš™ï¸ In Bearbeitung", "â³ Warteschlange", "âŒ Fehler"]
             status_values = [
                 files_data.get("ready", 0),
                 files_data.get("processing", 0),
@@ -255,215 +261,209 @@ if selected_page == "?? Dashboard":
                 files_data.get("error", 0)
             ]
             status_colors = ["#28a745", "#ffc107", "#17a2b8", "#dc3545"]
+            
             fig = px.pie(
                 values=status_values,
                 names=status_labels,
                 color_discrete_sequence=status_colors,
-                title="?? Bearbeitungsstatus der Dateien"
+                title="ðŸ“Š Bearbeitungsstatus der Dateien"
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("?? Noch keine Dateien im System vorhanden")
+            st.info("ðŸ“ Noch keine Dateien im System vorhanden")
     else:
-        st.error(f"? Leistungsdaten konnten nicht geladen werden: {perf_data}")
+        st.error(f"âŒ Leistungsdaten konnten nicht geladen werden: {perf_data}")
 
+# ---------------- ðŸ“ Dateien hochladen ----------------
+elif selected_page == "ðŸ“ Dateien hochladen":
+    st.title("ðŸ“ Dateien hochladen")
 
-# Dateien hochladen
-
-elif selected_page == "?? Dateien hochladen":
-    st.title("?? Dateien hochladen")
-
-    # Benutzer kann Einzel- oder Mehrfach-Upload w�hlen
     upload_mode = st.radio(
-        "Upload-Methode w�hlen:",
-        ["?? Einzeldokument", "?? Mehrere Dokumente"],
+        "ðŸ“¤ Upload-Methode wÃ¤hlen:",
+        ["ðŸ“„ Einzeldokument", "ðŸ“š Mehrere Dokumente"],
         horizontal=True
     )
 
-    # ---------- Einzeldokument-Upload ----------
-    if upload_mode == "?? Einzeldokument":
-        st.subheader("?? Einzeldokument hochladen")
+    if upload_mode == "ðŸ“„ Einzeldokument":
+        st.subheader("ðŸ“„ Einzeldokument hochladen")
 
         uploaded_file = st.file_uploader(
-            "Dokument ausw�hlen:",
+            "ðŸ“Ž Dokument auswÃ¤hlen:",
             type=['pdf', 'docx', 'doc', 'pptx', 'ppt', 'txt', 'md', 'html', 'xlsx', 'csv'],
-            help="?? Unterst�tzte Formate: PDF, Word, PowerPoint, Excel, Text, HTML, CSV, Markdown"
+            help="ðŸ’¡ UnterstÃ¼tzte Formate: PDF, Word, PowerPoint, Excel, Text, HTML, CSV, Markdown"
         )
 
         if uploaded_file is not None:
-            # Kurzinformationen zur Datei
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.info(f"**?? Dateiname:** {uploaded_file.name}")
+                st.info(f"**ðŸ“ Dateiname:** {uploaded_file.name}")
             with col2:
-                st.info(f"**?? Gr��e:** {format_file_size(uploaded_file.size)}")
+                st.info(f"**ðŸ“ GrÃ¶ÃŸe:** {format_file_size(uploaded_file.size)}")
             with col3:
-                st.info(f"**?? Format:** {uploaded_file.type}")
+                st.info(f"**ðŸ”§ Format:** {uploaded_file.type}")
 
-            # Datei zum Backend senden
-            if st.button("?? Hochladen & Verarbeiten", type="primary"):
-                with st.spinner("?? Dokument wird verarbeitet..."):
+            if st.button("ðŸš€ Hochladen & Verarbeiten", type="primary"):
+                with st.spinner("âš™ï¸ Dokument wird verarbeitet..."):
                     try:
                         files = {
                             "file": (uploaded_file.name, uploaded_file.getvalue(), get_mime_type(uploaded_file.name))
                         }
                         success, result = make_api_request("/upload_document", method="POST", files=files)
+                        
                         if success:
-                            st.success("? Dokument erfolgreich verarbeitet!")
-                            # Ergebnis-Metriken anzeigen
+                            st.success("âœ… Dokument erfolgreich verarbeitet!")
                             col1, col2, col3 = st.columns(3)
                             with col1:
-                                st.metric("?? Chunks", result.get("chunks", 0))
+                                st.metric("ðŸ§© Chunks", result.get("chunks", 0))
                             with col2:
-                                st.metric("?? Zeit", format_duration(result.get("processing_time_ms", 0)))
+                                st.metric("â±ï¸ Zeit", format_duration(result.get("processing_time_ms", 0)))
                             with col3:
-                                st.metric("?? Datei-ID", result.get("file_id", "N/A"))
-                            # Qualit�tsdaten, falls vorhanden
+                                st.metric("ðŸ†” Datei-ID", result.get("file_id", "N/A"))
+                            
                             quality = result.get("quality_metrics", {})
                             if quality:
-                                st.subheader("? Qualit�tsanalyse")
+                                st.subheader("ðŸŽ¯ QualitÃ¤tsanalyse")
                                 st.json(quality)
                         else:
-                            st.error(f"? Upload fehlgeschlagen: {result}")
+                            st.error(f"âŒ Upload fehlgeschlagen: {result}")
                     except Exception as e:
-                        st.error(f"? Fehler: {str(e)}")
+                        st.error(f"âŒ Fehler: {str(e)}")
 
-    # ---------- Multi-Upload ----------
     else:  # Multiple Files
-        st.subheader("?? Mehrere Dokumente hochladen")
+        st.subheader("ðŸ“š Mehrere Dokumente hochladen")
         uploaded_files = st.file_uploader(
-            "Mehrere Dokumente ausw�hlen:",
+            "ðŸ“Ž Mehrere Dokumente auswÃ¤hlen:",
             type=['pdf', 'docx', 'doc', 'pptx', 'ppt', 'txt', 'md', 'html', 'xlsx', 'csv'],
             accept_multiple_files=True
         )
+        
         if uploaded_files:
-            st.info(f"?? {len(uploaded_files)} Dateien ausgew�hlt")
-            # Dateiliste ausgeben
+            st.info(f"ðŸ“ {len(uploaded_files)} Dateien ausgewÃ¤hlt")
             for i, file in enumerate(uploaded_files):
-                st.write(f"{i+1}. ?? {file.name} ({format_file_size(file.size)})")
-            # Sammel-Upload starten
-            if st.button("?? Alle Dateien hochladen", type="primary"):
-                with st.spinner("? Dateien werden hochgeladen..."):
+                st.write(f"{i+1}. ðŸ“„ {file.name} ({format_file_size(file.size)})")
+            
+            if st.button("ðŸš€ Alle Dateien hochladen", type="primary"):
+                with st.spinner("âš™ï¸ Dateien werden hochgeladen..."):
                     try:
                         files_data = []
                         for file in uploaded_files:
                             files_data.append(("files", (file.name, file.getvalue(), get_mime_type(file.name))))
+                        
                         success, result = make_api_request("/upload_multiple", method="POST", files=files_data)
+                        
                         if success:
-                            st.success("? Batch-Upload abgeschlossen!")
-                            # Zusammenfassung
+                            st.success("âœ… Batch-Upload abgeschlossen!")
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("?? Gesamt", result.get("total_files", 0))
+                                st.metric("ðŸ“ Gesamt", result.get("total_files", 0))
                             with col2:
-                                st.metric("? Erfolgreich", result.get("successful", 0))
+                                st.metric("âœ… Erfolgreich", result.get("successful", 0))
                             with col3:
-                                st.metric("? Fehlgeschlagen", result.get("failed", 0))
+                                st.metric("âŒ Fehlgeschlagen", result.get("failed", 0))
                             with col4:
-                                st.metric("?? Duplikate", result.get("duplicates", 0))
-                            # Detailtabelle
+                                st.metric("ðŸ”„ Duplikate", result.get("duplicates", 0))
+                            
                             details = result.get("details", [])
                             if details:
-                                st.subheader("?? Upload-Details")
+                                st.subheader("ðŸ“‹ Upload-Details")
                                 df = pd.DataFrame(details)
                                 st.dataframe(df, use_container_width=True)
                         else:
-                            st.error(f"? Batch-Upload fehlgeschlagen: {result}")
+                            st.error(f"âŒ Batch-Upload fehlgeschlagen: {result}")
                     except Exception as e:
-                        st.error(f"? Fehler: {str(e)}")
+                        st.error(f"âŒ Fehler: {str(e)}")
 
+# ---------------- ðŸ—‚ï¸ Dateiverwaltung ----------------
+elif selected_page == "ðŸ—‚ï¸ Dateiverwaltung":
+    st.title("ðŸ—‚ï¸ Dateiverwaltung")
 
-# Dateiverwaltung
-
-elif selected_page == "?? Dateiverwaltung":
-    st.title("?? Dateiverwaltung")
-
-    # Buttons f�r Refresh, Cleanup, Re-Chunking
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("?? Dateien aktualisieren"):
+        if st.button("ðŸ”„ Dateien aktualisieren"):
             st.rerun()
     with col2:
-        if st.button("?? System bereinigen"):
-            with st.spinner("?? Bereinigung l�uft..."):
-                success, result = make_api_request("/cleanup", method="POST")
+        if st.button("ðŸ§¹ System bereinigen"):
+            with st.spinner("ðŸ§¹ Bereinigung lÃ¤uft..."):
+                # âœ… FIXED: Korrekter Endpunkt
+                success, result = make_api_request("/system/cleanup", method="POST")
                 if success:
-                    st.success("? Bereinigung abgeschlossen!")
+                    st.success("âœ… Bereinigung abgeschlossen!")
                     st.json(result)
                 else:
-                    st.error(f"? Bereinigung fehlgeschlagen: {result}")
+                    st.error(f"âŒ Bereinigung fehlgeschlagen: {result}")
     with col3:
-        if st.button("?? Alle neu verarbeiten"):
-            with st.spinner("?? Alle Dateien werden neu verarbeitet..."):
+        if st.button("ðŸ”„ Alle neu verarbeiten"):
+            with st.spinner("âš™ï¸ Alle Dateien werden neu verarbeitet..."):
                 success, result = make_api_request("/rechunk", method="POST")
                 if success:
-                    st.success(f"? Neuverarbeitung abgeschlossen: {result.get('processed', 0)} verarbeitet")
+                    st.success(f"âœ… Neuverarbeitung abgeschlossen: {result.get('processed', 0)} verarbeitet")
                     st.json(result)
                 else:
-                    st.error(f"? Neuverarbeitung fehlgeschlagen: {result}")
+                    st.error(f"âŒ Neuverarbeitung fehlgeschlagen: {result}")
 
-    # Dateiliste vom Backend holen
     success, files = make_api_request("/files")
     if success and files:
-        st.subheader(f"?? Dateien ({len(files)} gesamt)")
+        st.subheader(f"ðŸ“‚ Dateien ({len(files)} gesamt)")
+        
         for file in files:
-            with st.expander(f"?? {file['file_name']} - {create_status_badge(file['status'])}"):
-                # Metadaten in Spalten
+            with st.expander(f"ðŸ“„ {file['file_name']} - {create_status_badge(file['status'])}"):
                 col1, col2, col3, col4 = st.columns(4)
+                
                 with col1:
-                    st.write(f"**?? ID:** {file['id']}")
-                    st.write(f"**?? Typ:** {file['document_type']}")
-                    st.write(f"**?? Gr��e:** {format_file_size(file['file_size'])}")
+                    st.write(f"**ðŸ†” ID:** {file['id']}")
+                    st.write(f"**ðŸ“‹ Typ:** {file['document_type']}")
+                    st.write(f"**ðŸ“ GrÃ¶ÃŸe:** {format_file_size(file['file_size'])}")
+                
                 with col2:
-                    st.write(f"**?? Hochgeladen:** {file['upload_date'][:10]}")
-                    st.write(f"**?? Chunks:** {file['chunk_count']}")
+                    st.write(f"**ðŸ“… Hochgeladen:** {file['upload_date'][:10] if file.get('upload_date') else 'N/A'}")
+                    st.write(f"**ðŸ§© Chunks:** {file['chunk_count']}")
                     if file.get('processing_duration_ms'):
-                        st.write(f"**?? Dauer:** {format_duration(file['processing_duration_ms'])}")
+                        st.write(f"**â±ï¸ Dauer:** {format_duration(file['processing_duration_ms'])}")
+                
                 with col3:
                     quality = file.get('quality_metrics', {})
                     if quality:
-                        st.write(f"**? Qualit�t:** {quality.get('content_quality_score', 0):.2f}")
+                        st.write(f"**ðŸŽ¯ QualitÃ¤t:** {quality.get('avg_chunk_quality', 0):.2f}")
+                
                 with col4:
-                    # L�sch-Button
-                    if st.button(f"??? L�schen", key=f"del_{file['id']}"):
+                    if st.button(f"ðŸ—‘ï¸ LÃ¶schen", key=f"del_{file['id']}"):
                         success, result = make_api_request(f"/files/{file['id']}", method="DELETE")
                         if success:
-                            st.success("? Datei gel�scht!")
+                            st.success("âœ… Datei gelÃ¶scht!")
                             st.rerun()
                         else:
-                            st.error(f"? L�schen fehlgeschlagen: {result}")
-                # Fehlermeldung anzeigen, falls vorhanden
+                            st.error(f"âŒ LÃ¶schen fehlgeschlagen: {result}")
+                
                 if file.get('error_message'):
-                    st.error(f"? {file['error_message']}")
+                    st.error(f"âŒ {file['error_message']}")
     elif success:
-        st.info("?? Noch keine Dateien hochgeladen")
+        st.info("ðŸ“ Noch keine Dateien hochgeladen")
     else:
-        st.error(f"? Dateien konnten nicht geladen werden: {files}")
+        st.error(f"âŒ Dateien konnten nicht geladen werden: {files}")
 
-# Suche & Abfrage
+# ---------------- ðŸ” Suche & Abfrage ----------------
+elif selected_page == "ðŸ” Suche & Abfrage":
+    st.title("ðŸ” Suche & Abfrage")
 
-elif selected_page == "?? Suche & Abfrage":
-    st.title("?? Suche & Abfrage")
+    tab1, tab2 = st.tabs(["ðŸ¤– KI-Suche", "ðŸ“ Textsuche"])
 
-    # Zwei Tabs: KI-gest�tzte Suche und klassische Volltextsuche
-    tab1, tab2 = st.tabs(["?? KI-Suche", "?? Textsuche"])
-
-    # ---------- KI-Suche ----------
     with tab1:
-        st.subheader("?? KI-gest�tzte semantische Suche")
+        st.subheader("ðŸ¤– KI-gestÃ¼tzte semantische Suche")
         query = st.text_area(
-            "Ihre Frage:",
+            "â“ Ihre Frage:",
             value="Was muss ich beim mobilen Arbeiten beachten?",
             height=100,
-            help="?? Stellen Sie mir alle Fragen rund um die IT der Berliner Wasserbetriebe"
+            help="ðŸ’¡ Stellen Sie mir alle Fragen rund um die IT der Berliner Wasserbetriebe"
         )
+        
         col1, col2 = st.columns(2)
         with col1:
-            max_results = st.slider("?? Max. Ergebnisse:", 1, 20, 5)
+            max_results = st.slider("ðŸ“Š Max. Ergebnisse:", 1, 20, 10)
         with col2:
-            quality_threshold = st.slider("? Qualit�tsschwelle:", 0.0, 1.0, 0.3, 0.1)
-        if st.button("?? Suchen", type="primary") and query.strip():
-            with st.spinner("?? KI verarbeitet Ihre Frage..."):
+            quality_threshold = st.slider("ðŸŽ¯ QualitÃ¤tsschwelle:", 0.0, 1.0, 0.7, 0.1)
+        
+        if st.button("ðŸ” Suchen", type="primary") and query.strip():
+            with st.spinner("ðŸ¤– KI verarbeitet Ihre Frage..."):
                 try:
                     payload = {
                         "query": query.strip(),
@@ -471,46 +471,50 @@ elif selected_page == "?? Suche & Abfrage":
                         "quality_threshold": quality_threshold
                     }
                     success, result = make_api_request("/query", method="POST", json=payload)
+                    
                     if success:
-                        st.subheader("?? Antwort")
-                        st.markdown(result.get("answer", "Keine Antwort generiert"))
-                        # Performance-Metriken
+                        st.subheader("ðŸ’¬ Antwort")
+                        raw_answer = result.get("answer", "Keine Antwort generiert")
+                        answer = textwrap.dedent(raw_answer).strip()
+                        st.markdown(answer)
+                        
                         col1, col2, col3 = st.columns(3)
                         with col1:
-                            st.metric("?? Antwortzeit", f"{result.get('response_time_ms', 0)}ms")
+                            st.metric("â±ï¸ Antwortzeit", f"{result.get('response_time_ms', 0)}ms")
                         with col2:
-                            st.metric("?? Ergebnisse", result.get("results_count", 0))
+                            st.metric("ðŸ“‹ Ergebnisse", result.get("results_count", 0))
                         with col3:
                             quality = result.get("quality_metrics", {})
-                            st.metric("?? Relevanz", f"{quality.get('avg_relevance', 0):.3f}")
-                        # Quellenauflistung
+                            st.metric("ðŸŽ¯ Relevanz", f"{quality.get('avg_relevance', 0):.3f}")
+                        
                         sources = result.get("sources", [])
                         if sources:
-                            st.subheader("?? Quellen")
+                            st.subheader("ðŸ“š Quellen")
                             for i, source in enumerate(sources, 1):
-                                with st.expander(f"?? Quelle {i}: {source.get('source', 'Unbekannt')} (Seite {source.get('page', 'N/A')})"):
+                                with st.expander(f"ðŸ“„ Quelle {i}: {source.get('source', 'Unbekannt')} (Seite {source.get('page', 'N/A')})"):
                                     st.markdown(source.get('text', ''))
-                                    st.caption(f"?? �hnlichkeit: {source.get('similarity', 0):.3f} | ? Qualit�t: {source.get('quality_score', 0):.3f}")
+                                    st.caption(f"ðŸŽ¯ Ã„hnlichkeit: {source.get('similarity', 0):.3f} | ðŸ“Š QualitÃ¤t: {source.get('quality_score', 0):.3f}")
                     else:
-                        st.error(f"? Suche fehlgeschlagen: {result}")
+                        st.error(f"âŒ Suche fehlgeschlagen: {result}")
                 except Exception as e:
-                    st.error(f"? Fehler: {str(e)}")
+                    st.error(f"âŒ Fehler: {str(e)}")
 
-    # ---------- Volltextsuche ----------
     with tab2:
-        st.subheader("?? Volltextsuche")
+        st.subheader("ðŸ“ Volltextsuche")
         search_term = st.text_input(
-            "Suchbegriffe:",
-            placeholder="Geben Sie spezifische W�rter oder Phrasen ein...",
-            help="?? Direkte Textsuche im Dokumentinhalt"
+            "ðŸ”¤ Suchbegriffe:",
+            placeholder="Geben Sie spezifische WÃ¶rter oder Phrasen ein...",
+            help="ðŸ’¡ Direkte Textsuche im Dokumentinhalt"
         )
+        
         col1, col2 = st.columns(2)
         with col1:
-            limit = st.slider("?? Max. Ergebnisse:", 1, 50, 10)
+            limit = st.slider("ðŸ“Š Max. Ergebnisse:", 1, 50, 10)
         with col2:
-            quality_threshold = st.slider("? Qualit�tsfilter:", 0.0, 1.0, 0.3, 0.1)
-        if st.button("?? Text durchsuchen", type="primary") and search_term:
-            with st.spinner("?? Textinhalt wird durchsucht..."):
+            quality_threshold = st.slider("ðŸŽ¯ QualitÃ¤tsfilter:", 0.0, 1.0, 0.3, 0.1)
+        
+        if st.button("ðŸ” Text durchsuchen", type="primary") and search_term:
+            with st.spinner("ðŸ“ Textinhalt wird durchsucht..."):
                 try:
                     params = {
                         "q": search_term,
@@ -518,184 +522,385 @@ elif selected_page == "?? Suche & Abfrage":
                         "quality_threshold": quality_threshold
                     }
                     success, result = make_api_request("/search/fulltext", params=params)
+                    
                     if success:
-                        st.success(f"? {result.get('results_count', 0)} Ergebnisse in {result.get('response_time_ms', 0)}ms gefunden")
+                        st.success(f"âœ… {result.get('results_count', 0)} Ergebnisse in {result.get('response_time_ms', 0)}ms gefunden")
                         results = result.get("results", [])
+                        
                         for i, res in enumerate(results, 1):
-                            with st.expander(f"?? Ergebnis {i} - Qualit�t: {res.get('quality_score', 0):.3f}"):
+                            with st.expander(f"ðŸ“„ Ergebnis {i} - QualitÃ¤t: {res.get('quality_score', 0):.3f}"):
                                 st.markdown(res.get('text', ''))
                                 col1, col2 = st.columns(2)
                                 with col1:
-                                    st.caption(f"?? Seite: {res.get('page', 'N/A')}")
+                                    st.caption(f"ðŸ“– Seite: {res.get('page', 'N/A')}")
                                 with col2:
-                                    st.caption(f"?? W�rter: {res.get('word_count', 0)}")
+                                    st.caption(f"ðŸ”¤ WÃ¶rter: {res.get('word_count', 0)}")
                     else:
-                        st.error(f"? Suche fehlgeschlagen: {result}")
+                        st.error(f"âŒ Suche fehlgeschlagen: {result}")
                 except Exception as e:
-                    st.error(f"? Fehler: {str(e)}")
+                    st.error(f"âŒ Fehler: {str(e)}")
 
+# ---------------- ðŸ“ˆ Analytik ----------------
+elif selected_page == "ðŸ“ˆ Analytik":
+    st.title("ðŸ“ˆ Systemanalytik")
 
-# Analytics
-
-elif selected_page == "?? Analytik":
-    st.title("?? Systemanalytik")
-
-    # Zeitraum w�hlen
     days = st.selectbox(
-        "?? Analysezeitraum:",
+        "ðŸ“… Analysezeitraum:",
         [7, 14, 30, 60, 90],
         index=2,
         format_func=lambda x: f"Letzte {x} Tage"
     )
 
-    # Analytics vom Backend abrufen
     success, analytics = make_api_request(f"/system/analytics?days={days}")
+    
     if success:
         query_stats = analytics.get("query_analytics", {})
+        
         if query_stats:
-            st.subheader("?? Abfragestatistiken")
+            st.subheader("ðŸ“Š Abfragestatistiken")
             col1, col2, col3, col4 = st.columns(4)
+            
             with col1:
-                st.metric("?? Abfragen gesamt", query_stats.get("total_queries", 0))
+                st.metric("ðŸ” Abfragen gesamt", query_stats.get("total_queries", 0))
             with col2:
-                st.metric("?? Einzige Abfragen", query_stats.get("unique_queries", 0))
+                st.metric("ðŸŽ¯ Einzigartige Abfragen", query_stats.get("unique_queries", 0))
             with col3:
                 avg_time = query_stats.get("avg_response_time", 0)
-                st.metric("?? � Antwortzeit", format_duration(avg_time))
+                st.metric("â±ï¸ âŒ€ Antwortzeit", format_duration(avg_time))
             with col4:
-                st.metric("?? � Ergebnisse", f"{query_stats.get('avg_results_count', 0):.1f}")
-            # Performancediagramme (langsame vs. schnelle Abfragen, Erfolgsquote)
-            st.subheader("?? Leistungsanalyse")
+                st.metric("ðŸ“‹ âŒ€ Ergebnisse", f"{query_stats.get('avg_results_count', 0):.1f}")
+
+            st.subheader("ðŸš€ Leistungsanalyse")
             col1, col2 = st.columns(2)
+            
             with col1:
                 slow_queries = query_stats.get("slow_queries", 0)
                 total_queries = query_stats.get("total_queries", 1)
                 fast_queries = total_queries - slow_queries
+                
                 fig = px.pie(
                     values=[fast_queries, slow_queries],
-                    names=["? Schnell (<5s)", "?? Langsam (>5s)"],
-                    title="????? Abfrageleistung",
+                    names=["ðŸš€ Schnell (<5s)", "ðŸŒ Langsam (>5s)"],
+                    title="âš¡ðŸ• Abfrageleistung",
                     color_discrete_sequence=["#28a745", "#dc3545"]
                 )
                 st.plotly_chart(fig, use_container_width=True)
+            
             with col2:
                 zero_results = query_stats.get("zero_result_queries", 0)
                 successful = total_queries - zero_results
+                
                 fig = px.pie(
                     values=[successful, zero_results],
-                    names=["? Ergebnisse gefunden", "? Keine Ergebnisse"],
-                    title="?? Erfolgsquote der Abfragen",
+                    names=["âœ… Ergebnisse gefunden", "âŒ Keine Ergebnisse"],
+                    title="ðŸŽ¯ Erfolgsquote der Abfragen",
                     color_discrete_sequence=["#17a2b8", "#ffc107"]
                 )
                 st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("?? Keine Abfragedaten f�r den gew�hlten Zeitraum verf�gbar")
-        # Datenbankgesundheit
+            st.info("ðŸ“Š Keine Abfragedaten fÃ¼r den gewÃ¤hlten Zeitraum verfÃ¼gbar")
+
         db_health = analytics.get("database_health", {})
         if db_health:
-            st.subheader("?? Datenbankzustand")
+            st.subheader("ðŸ—„ï¸ Datenbankzustand")
             table_sizes = db_health.get("table_sizes", [])
             if table_sizes:
                 df = pd.DataFrame(table_sizes)
                 st.dataframe(df[['tablename', 'size']], use_container_width=True)
     else:
-        st.error(f"? Analytikdaten konnten nicht geladen werden: {analytics}")
+        st.error(f"âŒ Analytikdaten konnten nicht geladen werden: {analytics}")
 
+# ---------------- ðŸ“‹ Queue Management (NEU) ----------------
+elif selected_page == "ðŸ“‹ Queue Management":
+    st.title("ðŸ“‹ Verarbeitungsqueue-Management")
 
-# Systemverwaltung
+    # Quick Actions
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("ðŸ”„ Queue aktualisieren"):
+            st.rerun()
+    with col2:
+        if st.button("âš™ï¸ Queue verarbeiten"):
+            with st.spinner("âš™ï¸ Queue wird verarbeitet..."):
+                success, result = make_api_request("/process_uploaded_files", method="POST")
+                if success:
+                    st.success("âœ… Queue-Verarbeitung abgeschlossen!")
+                    st.json(result)
+                else:
+                    st.error(f"âŒ Queue-Verarbeitung fehlgeschlagen: {result}")
+    with col3:
+        if st.button("ðŸ”„ Fehlgeschlagene wiederholen"):
+            with st.spinner("âš™ï¸ Fehlgeschlagene Dateien werden wiederholt..."):
+                success, result = make_api_request("/retry_failed", method="POST")
+                if success:
+                    st.success(f"âœ… Wiederholung abgeschlossen: {result.get('queued', 0)} Dateien in Warteschlange")
+                    st.json(result)
+                else:
+                    st.error(f"âŒ Wiederholung fehlgeschlagen: {result}")
 
-elif selected_page == "?? Systemverwaltung":
-    st.title("?? Systemverwaltung")
+    # Queue Overview
+    st.subheader("ðŸ“Š Queue-Ãœbersicht")
+    success, queue_info = make_api_request("/queue")
+    
+    if success:
+        summary = queue_info.get("summary", {})
+        
+        # Queue Status Cards
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f"""
+            <div class="queue-card">
+                <h3>â³ Wartend</h3>
+                <h2>{summary.get('pending', 0)}</h2>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="queue-card">
+                <h3>âš™ï¸ In Bearbeitung</h3>
+                <h2>{summary.get('processing', 0)}</h2>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+            <div class="queue-card">
+                <h3>âœ… Abgeschlossen</h3>
+                <h2>{summary.get('completed', 0)}</h2>
+            </div>
+            """, unsafe_allow_html=True)
+        with col4:
+            st.markdown(f"""
+            <div class="queue-card">
+                <h3>âŒ Fehler</h3>
+                <h2>{summary.get('errors', 0)}</h2>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # Health-Status anzeigen
-    st.subheader("?? Systemstatus")
+        # Detailed Queue Information
+        st.subheader("ðŸ“‹ Detaillierte Queue-Informationen")
+        success_details, queue_details = make_api_request("/queue/details")
+        
+        if success_details:
+            queue_data = queue_details.get("queue_details", {})
+            
+            # Tabs fÃ¼r verschiedene Queue-Status
+            tab1, tab2, tab3 = st.tabs(["â³ Warteschlange", "âš™ï¸ In Bearbeitung", "âŒ Fehler"])
+            
+            with tab1:
+                uploaded_files = queue_data.get("uploaded_files", [])
+                if uploaded_files:
+                    df = pd.DataFrame(uploaded_files)
+                    st.dataframe(df, use_container_width=True)
+                else:
+                    st.info("Keine Dateien in der Warteschlange")
+            
+            with tab2:
+                processing_files = queue_data.get("processing_files", [])
+                if processing_files:
+                    df = pd.DataFrame(processing_files)
+                    st.dataframe(df, use_container_width=True)
+                else:
+                    st.info("Keine Dateien werden aktuell verarbeitet")
+            
+            with tab3:
+                error_files = queue_data.get("error_files", [])
+                if error_files:
+                    df = pd.DataFrame(error_files)
+                    st.dataframe(df, use_container_width=True)
+                else:
+                    st.success("Keine fehlgeschlagenen Dateien")
+        else:
+            st.warning("âš ï¸ Detaillierte Queue-Informationen nicht verfÃ¼gbar")
+    else:
+        st.error(f"âŒ Queue-Informationen konnten nicht geladen werden: {queue_info}")
+
+# ---------------- âš™ï¸ Systemverwaltung (Erweitert) ----------------
+elif selected_page == "âš™ï¸ Systemverwaltung":
+    st.title("âš™ï¸ Systemverwaltung")
+
+    # System Health Status
+    st.subheader("ðŸ©º Detaillierter Systemstatus")
     success, health = make_api_request("/health")
+    
     if success:
         services = health.get("services", {})
         for service, info in services.items():
             if info["status"] == "ok":
-                st.success(f"? **{service.title()}**: {info['message']}")
+                st.success(f"âœ… **{service.title()}**: {info['message']}")
             else:
-                st.error(f"? **{service.title()}**: {info['message']}")
+                st.error(f"âŒ **{service.title()}**: {info['message']}")
     else:
-        st.error(f"? Systemintegrit�tspr�fung fehlgeschlagen: {health}")
+        st.error(f"âŒ SystemintegritÃ¤tsprÃ¼fung fehlgeschlagen: {health}")
 
     st.markdown("---")
 
-    # ---------------- Wartungsoperationen ----------------
-    st.subheader("??? Wartungsoperationen")
+    # Wartungsoperationen
+    st.subheader("ðŸ”§ Wartungsoperationen")
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        if st.button("??? Datenbankwartung"):
-            with st.spinner("?? Wartung l�uft..."):
+        if st.button("ðŸ”§ Datenbankwartung"):
+            with st.spinner("ðŸ”§ Wartung lÃ¤uft..."):
                 success, result = make_api_request("/system/maintenance", method="POST")
                 if success:
-                    st.success("? Wartung abgeschlossen!")
+                    st.success("âœ… Wartung abgeschlossen!")
                     results = result.get("maintenance_results", {})
                     for op, msg in results.items():
                         st.info(f"**{op}**: {msg}")
                 else:
-                    st.error(f"? Wartung fehlgeschlagen: {result}")
+                    st.error(f"âŒ Wartung fehlgeschlagen: {result}")
+    
     with col2:
-        if st.button("?? Fehlgeschlagene wiederholen"):
-            with st.spinner("? Fehlgeschlagene Dateien werden wiederholt..."):
+        if st.button("ðŸ”„ Fehlgeschlagene wiederholen"):
+            with st.spinner("âš™ï¸ Fehlgeschlagene Dateien werden wiederholt..."):
                 success, result = make_api_request("/retry_failed", method="POST")
                 if success:
-                    st.success(f"? Wiederholung abgeschlossen: {result.get('retried', 0)} Dateien in Warteschlange")
+                    st.success(f"âœ… Wiederholung abgeschlossen: {result.get('queued', 0)} Dateien in Warteschlange")
+                    st.json(result)
                 else:
-                    st.error(f"? Wiederholung fehlgeschlagen: {result}")
+                    st.error(f"âŒ Wiederholung fehlgeschlagen: {result}")
+    
     with col3:
-        if st.button("?? Verarbeitungsqueue"):
+        if st.button("ðŸ“‹ Verarbeitungsqueue"):
             success, queue = make_api_request("/queue")
             if success:
                 summary = queue.get("summary", {})
-                st.info(f"? Wartend: {summary.get('pending', 0)}")
-                st.info(f"?? In Bearbeitung: {summary.get('processing', 0)}")
-                st.info(f"? Abgeschlossen: {summary.get('completed', 0)}")
-                st.info(f"? Fehler: {summary.get('errors', 0)}")
+                st.info(f"â³ Wartend: {summary.get('pending', 0)}")
+                st.info(f"âš™ï¸ In Bearbeitung: {summary.get('processing', 0)}")
+                st.info(f"âœ… Abgeschlossen: {summary.get('completed', 0)}")
+                st.info(f"âŒ Fehler: {summary.get('errors', 0)}")
             else:
-                st.error(f"? Queue-�berpr�fung fehlgeschlagen: {queue}")
+                st.error(f"âŒ Queue-ÃœberprÃ¼fung fehlgeschlagen: {queue}")
 
-    # ---------------- Konfiguration ----------------
-    st.subheader("?? Konfiguration")
+    st.markdown("---")
+
+    # Konfiguration
+    st.subheader("âš™ï¸ Systemkonfiguration")
     success, formats = make_api_request("/formats")
+    
     if success:
         supported = formats.get("supported_formats", {})
-        st.write(f"?? Unterst�tzte Formate: {len(supported)}")
+        st.write(f"ðŸ“‹ UnterstÃ¼tzte Formate: {len(supported)}")
+        
         format_list = list(supported.items())
         cols = st.columns(3)
         for i, (ext, desc) in enumerate(format_list):
             col_idx = i % 3
             with cols[col_idx]:
-                st.caption(f"?? {ext}: {desc}")
-    # ---------------- Debug-Infos ----------------
-    with st.expander("?? Debug-Informationen"):
+                st.caption(f"ðŸ“„ {ext}: {desc}")
+
+    st.markdown("---")
+
+    # â­Developer Tools
+    st.subheader("ðŸ”§ Developer Tools")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("ðŸ“‹ API-Status anzeigen"):
+            success, api_status = make_api_request("/api-status")
+            if success:
+                st.subheader("ðŸ” VerfÃ¼gbare API-Endpunkte")
+                endpoints = api_status.get("endpoints", [])
+                
+                # Gruppiere Endpunkte nach Kategorie
+                categories = {
+                    "System": [],
+                    "Dateien": [],
+                    "Suche": [],
+                    "Queue": [],
+                    "Andere": []
+                }
+                
+                for endpoint in endpoints:
+                    path = endpoint.get("path", "")
+                    if any(word in path for word in ["/health", "/system", "/formats"]):
+                        categories["System"].append(endpoint)
+                    elif any(word in path for word in ["/files", "/upload"]):
+                        categories["Dateien"].append(endpoint)
+                    elif any(word in path for word in ["/query", "/search"]):
+                        categories["Suche"].append(endpoint)
+                    elif any(word in path for word in ["/queue", "/process", "/retry"]):
+                        categories["Queue"].append(endpoint)
+                    else:
+                        categories["Andere"].append(endpoint)
+                
+                for category, endpoints in categories.items():
+                    if endpoints:
+                        st.write(f"**{category}-Endpunkte:**")
+                        for endpoint in endpoints:
+                            methods = ", ".join(endpoint.get("methods", []))
+                            st.code(f"{methods} {endpoint.get('path', '')}")
+            else:
+                st.error("âŒ API-Status nicht verfÃ¼gbar")
+    
+    with col2:
+        if st.button("ðŸ¥ Erweiterte Systemdiagnose"):
+            with st.spinner("ðŸ” Systemdiagnose lÃ¤uft..."):
+                # Kombiniere mehrere Health-Checks
+                health_success, health_data = make_api_request("/health")
+                perf_success, perf_data = make_api_request("/system/performance")
+                analytics_success, analytics_data = make_api_request("/system/analytics?days=7")
+                
+                st.markdown("### ðŸ¥ Diagnoseergebnisse")
+                
+                if health_success:
+                    fixes = health_data.get("fixes_applied", [])
+                    if fixes:
+                        st.success(f"âœ… Angewandte Fixes: {len(fixes)}")
+                        for fix in fixes:
+                            st.info(f"ðŸ”§ {fix}")
+                
+                if perf_success:
+                    metrics = perf_data.get("metrics", {})
+                    files_data = metrics.get("files", {})
+                    total_files = files_data.get("total", 0)
+                    ready_files = files_data.get("ready", 0)
+                    
+                    if total_files > 0:
+                        success_rate = (ready_files / total_files) * 100
+                        if success_rate > 90:
+                            st.success(f"âœ… Hohe Erfolgsquote: {success_rate:.1f}%")
+                        elif success_rate > 70:
+                            st.warning(f"âš ï¸ Moderate Erfolgsquote: {success_rate:.1f}%")
+                        else:
+                            st.error(f"âŒ Niedrige Erfolgsquote: {success_rate:.1f}%")
+
+    # Debug-Informationen
+    with st.expander("ðŸ› Debug-Informationen & System-Internals"):
+        st.markdown("""
+        <div class="developer-tools">
+        <h4>ðŸ” System-Internals</h4>
+        """, unsafe_allow_html=True)
+        
         debug_info = {
             "API_URL": API_BASE_URL,
             "Streamlit_Version": st.__version__,
-            "Current_Time": datetime.now().isoformat()
+            "Current_Time": datetime.now().isoformat(),
+            "Features": [
+                "Queue Management",
+                "Developer Tools", 
+                "Extended Analytics",
+                "API Status Monitoring"
+            ]
         }
+        
         st.json(debug_info)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-
-# Fu�zeile
-
+# ðŸ“ Footer
 st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; padding: 20px;'>
-        ?? <strong>BWB PoC RAG System</strong><br>
-        ? FastAPI � ?? ChromaDB � ?? PostgreSQL � ?? Streamlit<br>
-        <em>?? Erweiterte Dokumentenverarbeitung � ?? Vektorsuche � ?? Echtzeitanalytik</em>
+        ðŸ¢ <strong>BWB PoC RAG System</strong><br>
+        ðŸš€ FastAPI â€¢ ðŸ—„ï¸ ChromaDB â€¢ ðŸ˜ PostgreSQL â€¢ ðŸ“Š Streamlit<br>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-
-# ?? Auto-Refresh
-
-if selected_page == "?? Dashboard":
-    if st.sidebar.checkbox("?? Auto-Aktualisierung (30s)"):
+# ðŸ”„ Auto-Refresh fÃ¼r Dashboard
+if selected_page == "ðŸ“Š Dashboard":
+    if st.sidebar.checkbox("ðŸ”„ Auto-Aktualisierung (30s)"):
         time.sleep(30)
         st.rerun()

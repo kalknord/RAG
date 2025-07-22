@@ -8,7 +8,7 @@ import asyncio
 
 LLM_SERVER_URL = os.getenv("LLM_SERVER_URL", "http://rag_llm_server:8000/completion")
 
-async def generate_answer(question: str, docs: list[dict], max_tokens: int = 512):
+async def generate_answer(question: str, docs: list[dict], max_tokens: int = 10000):
     """
     Generiert kontextbezogene Antworten basierend auf Retrieval-Ergebnissen.
     
@@ -48,9 +48,60 @@ async def generate_answer(question: str, docs: list[dict], max_tokens: int = 512
     context = "\n\n".join(context_parts)
     
     # PROMPT ENGINEERING: Optimierter Prompt für deutsches SauerkrautLM-Modell
-    prompt = f"""Beantworte die folgende Frage basierend auf dem gegebenen Kontext. 
-Antworte nur auf Deutsch und beziehe dich nur auf die Informationen aus dem Kontext.
-Wenn die Antwort nicht im Kontext zu finden ist, sage das ehrlich.
+    prompt = f"""
+    
+Bitte beantworte die folgende Frage ausschließlich auf Grundlage des bereitgestellten Kontexts.
+    
+Die Informationen stammen aus offiziellen Dokumenten der Berliner Wasserbetriebe AöR, einem kommunalen Wasserver- und Entsorgungsunternehmen mit Sitz in Berlin. Diese Dokumente umfassen insbesondere:
+    
+    Arbeitsanweisungen
+      
+    Dienstvereinbarungen
+      
+    Betriebsvereinbarungen
+      
+    Interne Richtlinien
+    
+Die Inhalte dieser Unterlagen betreffen unter anderem die folgenden Themen:
+    
+    Arbeitsorganisation und Zuständigkeiten
+      
+    Sicherheitsvorschriften und Arbeitsschutz
+      
+    Schichtdienstregelungen
+      
+    Umweltschutzmaßnahmen
+      
+    Technisch-betriebliche Abläufe und Verfahrensanweisungen
+      
+Bitte beachte bei der Beantwortung der Frage die folgenden Vorgaben:
+      
+Antworte ausschließlich auf Deutsch.
+    
+    Verwende nur Informationen, die explizit im bereitgestellten Kontext enthalten sind.
+      
+    Ziehe keine Rückschlüsse aus allgemeinem Wissen oder Erfahrungswerten. Nur der konkrete Wortlaut des Kontexts ist maßgeblich.
+      
+    Formatiere die Antwort nicht in Markdown, sondern verwende einfachen, klaren Fließtext.
+
+Nutze bei Fragen zu ABläufen gerne Stickpunkte oder Handlungsabläufe.
+      
+Wenn sich die gestellte Frage nicht eindeutig anhand des Kontexts beantworten lässt, gib dies bitte offen und ehrlich an. Verwende dafür folgende Formulierung:
+„Im gegebenen Kontext liegen dazu keine Informationen vor.“
+
+Gebe keine Quellen im Text an.
+      
+Gib die Antwort strukturiert in Markdown aus. Entscheide über Überschriften und Unterpunkte selbst. Es darf keine Einrückungen geben. Achte darauf, das der unterschied der Textgrößen (z.B. H1 und normaler Text) nicht zu groß sind.
+      
+Achte darauf, dass die Antwort korrektes Markdown ist – z. B.:
+    
+    Absätze: \n\n
+          
+    Listen: - Punkt 1
+          
+    Fett: **Text**
+          
+    Überschriften: # H1, ## H2, usw.
 
 Kontext:
 {context}
@@ -68,7 +119,7 @@ Antwort:"""
                 json={
                     "prompt": prompt,                   # Vollständig konstruierter Prompt
                     "n_predict": max_tokens,            # Maximale Response-Länge
-                    "temperature": 0.7,                 # Kreativitäts-Balance (0.0=deterministisch, 1.0=kreativ)
+                    "temperature": 0.0,                 # Kreativitäts-Balance (0.0=deterministisch, 1.0=kreativ)
                     "top_k": 40,                        # Vocabulary-Sampling für Diversität
                     "top_p": 0.9,                       # Nucleus-Sampling für Qualität
                     "stop": ["Frage:", "Kontext:", "\n\nFrage:", "\n\nKontext:"]  # Stop-Sequences für saubere Terminierung
